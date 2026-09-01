@@ -29,10 +29,10 @@
   .zoomctl button:last-child{border-right:none;border-left:1px solid var(--ink)}
   .zoomctl span{width:48px;text-align:center;font-family:var(--mono);font-size:11px}
   .wrap{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap}
-  .canvas{flex:1 1 640px;min-width:300px;position:sticky;top:calc(var(--hh,68px) + 18px);align-self:flex-start}
+  .canvas{flex:1 1 640px;min-width:300px;position:sticky;top:calc(var(--hh,68px) + 18px);align-self:flex-start; height:100vh}
   /* the white here is the preview surface only — it is never part of the export */
-  .stage{background:#fff;border:1px solid var(--rule);display:flex;justify-content:center;padding:6px;overflow:auto}
-  svg#board{width:100%;height:auto;max-height:calc(100vh - var(--hh,68px) - 40px);display:block;flex:none}
+  .stage{background:#fff;border:1px solid var(--rule);display:flex;justify-content:center;padding:6px;overflow:auto; height:100%}
+  svg#board{width:100%;height:auto;max-height:calc(100vh - var(--hh,68px) - 40px);display:block;flex:none; overflow:visible}
   aside{flex:0 1 280px;min-width:260px;columns:1;column-gap:14px}
   aside > *{break-inside:avoid;margin-bottom:14px}
   .panel{border:1px solid var(--rule);background:#fff;padding:14px}
@@ -114,7 +114,7 @@
   <aside>
     <div class="panel">
       <span class="lbl">Subtitle</span>
-      <textarea id="subtitle" spellcheck="false" placeholder="Optional line above the title"></textarea>
+      <textarea id="subtitle" spellcheck="true" placeholder="Optional line above the title"></textarea>
       <div class="field" style="margin-top:9px">
         <label>Colour preset</label>
         <div class="combo" id="subPresetCombo">
@@ -131,13 +131,13 @@
 
     <div class="panel">
       <div class="lbl-row"><span class="lbl">Text</span></div>
-      <textarea id="text" spellcheck="false">Black Maternal Futures
+      <textarea id="text" spellcheck="true">Black Maternal Futures
 Project Wrap-up</textarea>
       <div class="btn-row" style="margin-top:9px">
         <button id="selectAllBtn">Select all</button>
         <button id="deselectAllBtn">Deselect all</button>
       </div>
-      <p class="hint">Press Enter for a new line. Left-click any word in the preview to drop its highlight; click again to bring it back. Right-click a word to give it its own colour combo. Drag the green handle on the preview to move the title, or its edge handle to resize.</p>
+      <p class="hint">Press Enter for a new line. Click a word in the preview to jump the cursor here and start typing. Double-click a word to drop its highlight; double-click again to bring it back. Right-click a word to give it its own colour combo. Drag the green handle on the preview to move the title, or its edge handle to resize.</p>
     </div>
 
     <div class="panel">
@@ -163,7 +163,7 @@ Project Wrap-up</textarea>
           <div class="combo-menu" id="datePresetMenu" hidden></div>
         </div>
       </div>
-      <button id="dateSwapBtn">&#8646; Swap font / highlight</button>
+      <button id="dateSwapBtn">&#8646; Swap colours</button>
       <p class="hint">Prints as "Month Year", right-aligned and touching the last line of the title, with its own highlight.</p>
     </div>
 
@@ -191,7 +191,7 @@ Project Wrap-up</textarea>
           <div class="combo-menu" id="titlePresetMenu" hidden></div>
         </div>
       </div>
-      <button id="colorSwapBtn" style="margin-top:2px">&#8646; Swap font / highlight</button>
+      <button id="colorSwapBtn" style="margin-top:2px">&#8646; Swap colours</button>
       <p class="hint">Left-click a word to toggle its highlight. Right-click a word to give it its own colour combo.</p>
     </div>
 
@@ -236,11 +236,15 @@ const ALTS=[
   {tag:'ss04', name:'Serifless uppercase I', on:false}
 ];
 const PRESETS=[
-  {name:'First Light / Midnight', pad:'#F1EFFD', font:'#322234'},
-  {name:'Marigold / Soil',        pad:'#FF9C63', font:'#75153A'},
-  {name:'Harvest / Earth',        pad:'#FFE57B', font:'#5F4D00'},
-  {name:'Dusk / Dark Purple',     pad:'#D0B6FF', font:'#4D1061'},
-  {name:'Dusk / Midnight',        pad:'#D0B6FF', font:'#322234'}
+  {name:'Violet / Dark Purple',      pad:'#A87BFE', font:'#4D1061'},
+  {name:'Dusk / Midnight',           pad:'#D0B6FF', font:'#322234'},
+  {name:'First Light / Dark Purple', pad:'#F1EFFD', font:'#4D1061'},
+  {name:'Marigold / Soil',           pad:'#FF9C63', font:'#75153A'},
+  {name:'Marigold Light / Soil',     pad:'#FFE4D1', font:'#75153A'},
+  {name:'Harvest / Earth',           pad:'#FFE57B', font:'#5F4D00'},
+  {name:'Light Harvest / Earth',     pad:'#FFF6D1', font:'#5F4D00'},
+  {name:'Apple / Elder',             pad:'#C9EB9D', font:'#314234'},
+  {name:'Apple Hint / Elder',        pad:'#F7FFE4', font:'#314234'}
 ];
 /* the full brand palette, single colours — used where only one colour is
    needed (the subtitle), as opposed to PRESETS' curated font+highlight pairs */
@@ -278,14 +282,14 @@ function defaultState(){
   const now=new Date();
   return {
     text:'Black Maternal Futures\nProject Wrap-up',
-    subtitle:'', subColor:'#322234',
-    dateOn:false, dateColor:'#322234', datePadColor:'#D0B6FF',
+    subtitle:'', subColor:'#4D1061',
+    dateOn:false, dateColor:'#4D1061', datePadColor:'#A87BFE',
     dateMonth:now.getMonth()+1, dateYear:clamp(now.getFullYear(),YEAR_MIN,YEAR_MAX),
     frame:{x:null,y:null,width:null},
     fontSize:150, lineHeight:95, tracking:-4, capPct:67,
     padStart:10.5, padROld:17, padVOld:17,
     padStart2:10.5, padMid:4, padROther:9, padOther:17,
-    fontColor:'#322234', padColor:'#D0B6FF',
+    fontColor:'#4D1061', padColor:'#A87BFE',
     alts:ALTS.map(a=>a.on),
     off:{}, wordColors:{},
     zoom:100, exportScale:3
@@ -305,6 +309,10 @@ const $=id=>document.getElementById(id);
 function flash(m){ const el=$('status'); el.textContent=m; clearTimeout(flash.t); flash.t=setTimeout(()=>el.textContent='',3200); }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 function twoTone(pad,font){ return 'linear-gradient(135deg,'+pad+' 50%,'+font+' 50%)'; }
+function slugify(str){
+  const s=str.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+  return s||'hubot-highlight';
+}
 
 /* ---------- history (undo/redo) ---------- */
 let history=[], future=[], lastPushT=0;
@@ -391,10 +399,10 @@ function initPresetCombo(triggerId,menuId,getState,setState){
 
   function refresh(){
     const st=getState();
-    const idx=matchPresetIndex(st.font,('pad' in st)?st.pad:null);
-    dot.classList.toggle('custom',idx<0);
-    dot.style.background=idx>=0?twoTone(PRESETS[idx].pad,PRESETS[idx].font):'';
-    label.textContent=idx>=0?PRESETS[idx].name:'Custom';
+    const label_=matchPresetLabel(st.font,st.pad);
+    dot.classList.toggle('custom',label_==null);
+    dot.style.background=label_!=null?twoTone(st.pad,st.font):'';
+    label.textContent=label_!=null?label_:'Custom';
   }
   function preview(state){
     /* guards against a stray mouseover/mouseleave firing after close (e.g. a
@@ -719,6 +727,20 @@ function matchPresetIndex(font,pad){
   }
   return -1;
 }
+/* Also matches a preset reversed (e.g. after hitting "swap" on Apple/Elder),
+   so the trigger reads "Elder / Apple" instead of falling back to "Custom" —
+   the colours are still exactly a named brand pair, just the other way round. */
+function matchPresetLabel(font,pad){
+  const idx=matchPresetIndex(font,pad);
+  if(idx>=0) return PRESETS[idx].name;
+  for(let i=0;i<PRESETS.length;i++){
+    if(PRESETS[i].font.toLowerCase()===pad.toLowerCase()&&PRESETS[i].pad.toLowerCase()===font.toLowerCase()){
+      const parts=PRESETS[i].name.split(' / ');
+      return parts.length===2?(parts[1]+' / '+parts[0]):PRESETS[i].name;
+    }
+  }
+  return null;
+}
 function syncInputs(){
   $('text').value=S.text;
   $('subtitle').value=S.subtitle;
@@ -728,6 +750,9 @@ function syncInputs(){
   datePresetCombo.refresh();
   $('dateMonth').value=S.dateMonth; $('dateYear').value=S.dateYear;
   titlePresetCombo.refresh();
+  document.querySelectorAll('[data-size]').forEach(function(btn){
+    btn.classList.toggle('active',+btn.dataset.size===S.fontSize);
+  });
   document.querySelectorAll('[data-scale]').forEach(function(btn){
     btn.classList.toggle('active',+btn.dataset.scale===S.exportScale);
   });
@@ -792,6 +817,30 @@ function tokenize(text){
 }
 let lastWords=[];
 function allWords(){ return lastWords; }
+
+/* Maps a word's gidx back to its character offset in the raw text, so a
+   click on the canvas can place a real cursor in the sidebar textarea at
+   roughly the right spot — reusing the same word order tokenize() assigns
+   gidx in, so the two stay in sync. */
+function wordCharOffset(text,gidx){
+  let idx=0, pos=0;
+  const lines=text.split('\n');
+  for(let li=0;li<lines.length;li++){
+    const line=lines[li];
+    const re=/\S+/g; let m;
+    while((m=re.exec(line))){
+      if(idx===gidx) return pos+m.index;
+      idx++;
+    }
+    pos+=line.length+1;
+  }
+  return text.length;
+}
+function focusTextAt(offset){
+  const ta=$('text');
+  ta.focus();
+  ta.setSelectionRange(offset,offset);
+}
 
 function wrapParagraph(words,style,frameWidth){
   if(!words.length) return [[]];
@@ -933,7 +982,7 @@ function render(){
     built[i].t.setAttribute('y',baseline);
     if(!line.length) return;
 
-    const lw=wordBox[i].map(o=>({gidx:o.gidx,left:o.bb.x+delta,right:o.bb.x+o.bb.width+delta}));
+    const lw=wordBox[i].map((o,j)=>({gidx:o.gidx,text:line[j].text,left:o.bb.x+delta,right:o.bb.x+o.bb.width+delta}));
     lw.forEach(w=>words.push(w));
 
     const runs=[]; let cur=null;
@@ -989,6 +1038,16 @@ function render(){
       hit.setAttribute('class','hit-word');
       hit.style.cursor='pointer';
       hit.addEventListener('click',function(ev){
+        /* single click: jump into the sidebar text field at roughly this
+           word, so you can start typing without hunting for it — a real
+           in-canvas caret isn't practical here since the canvas has its own
+           wrap engine, independent of the browser's text layout */
+        const r=hit.getBoundingClientRect();
+        const before=(ev.clientX-r.left)<r.width/2;
+        const start=wordCharOffset(S.text,w.gidx);
+        focusTextAt(before?start:start+w.text.length);
+      });
+      hit.addEventListener('dblclick',function(ev){
         pushHistory();
         if(S.off[w.gidx]) delete S.off[w.gidx]; else S.off[w.gidx]=1;
         render();
@@ -1144,7 +1203,7 @@ $('exportBtn').addEventListener('click',function(){
       ctx.imageSmoothingQuality='high';
       ctx.drawImage(img,0,0,cv.width,cv.height);
       const a=document.createElement('a');
-      a.download='hubot-highlight.png';
+      a.download=slugify(S.text)+'.png';
       a.href=cv.toDataURL('image/png'); a.click();
       btn.disabled=false; flash('PNG downloaded, '+cv.width+' × '+cv.height+' ('+scale+'×), transparent.');
     };
