@@ -81,6 +81,8 @@
   .swatch-dot.custom{background:#fff;border:1px dashed var(--muted)}
   .frame-handle{cursor:move}
   .frame-handle.resize{cursor:ew-resize}
+  @keyframes text-caret-blink{0%,50%{opacity:1}50.01%,100%{opacity:0}}
+  .text-caret{animation:text-caret-blink 1s step-end infinite}
   @media (max-width:900px){
     .canvas{position:static}
     aside{flex:1 1 100%;columns:260px}
@@ -92,7 +94,6 @@
 <header>
   <div class="hdr-left">
     <h1>Hubot Highlight</h1>
-    <span class="lbl" id="dims">1920 &times; 1080 &middot; cropped, transparent export</span>
   </div>
   <div class="hdr-tools">
     <button id="undoBtn" title="Undo">&#8634; Undo</button>
@@ -192,6 +193,7 @@ Project Wrap-up</textarea>
         </div>
       </div>
       <button id="colorSwapBtn" style="margin-top:2px">&#8646; Swap colours</button>
+      <button id="clearOverridesBtn" style="margin-top:8px">Clear all overrides</button>
       <p class="hint">Left-click a word to toggle its highlight. Right-click a word to give it its own colour combo.</p>
     </div>
 
@@ -297,6 +299,7 @@ function defaultState(){
 }
 let S=defaultState();
 let dirty=false;
+let caretVisible=false; /* whether the sidebar Text field currently has focus */
 /* Warn on refresh/close only once something has actually changed since the
    last save/export/load — not on every visit. */
 window.addEventListener('beforeunload',function(e){
@@ -378,6 +381,11 @@ $('colorSwapBtn').addEventListener('click',function(){
   pushHistory();
   const t=S.fontColor; S.fontColor=S.padColor; S.padColor=t;
   syncInputs(); render();
+});
+$('clearOverridesBtn').addEventListener('click',function(){
+  pushHistory();
+  S.wordColors={};
+  render();
 });
 $('dateSwapBtn').addEventListener('click',function(){
   pushHistory();
@@ -541,6 +549,19 @@ const datePresetCombo=initPresetCombo('datePresetTrigger','datePresetMenu',
   (v)=>{ S.dateColor=v.font; S.datePadColor=v.pad; });
 
 $('text').addEventListener('input',function(){ pushHistoryCoalesced(); S.text=$('text').value; render(); });
+/* the canvas caret tracks this field's real cursor, so anything that can
+   move the cursor (typing, arrow keys, clicking inside the field itself)
+   needs to trigger a redraw, not just changes to the text's value */
+/* deferred, not called directly: a click on the canvas can blur this field
+   natively (SVG rects aren't focusable) *synchronously mid-mousedown*, and
+   rendering right there would rebuild the board and yank out the very
+   element that same click is still in the middle of dispatching to — so the
+   click silently never lands. Pushing the render a tick later lets that
+   click's own mousedown/mouseup/click sequence finish untouched first. */
+$('text').addEventListener('focus',function(){ caretVisible=true; setTimeout(render,0); });
+$('text').addEventListener('blur',function(){ caretVisible=false; setTimeout(render,0); });
+$('text').addEventListener('keyup',function(){ if(caretVisible) render(); });
+$('text').addEventListener('click',function(){ if(caretVisible) render(); });
 $('subtitle').addEventListener('input',function(){ pushHistoryCoalesced(); S.subtitle=$('subtitle').value; render(); });
 
 $('dateToggle').addEventListener('click',function(){
@@ -840,6 +861,39 @@ function focusTextAt(offset){
   const ta=$('text');
   ta.focus();
   ta.setSelectionRange(offset,offset);
+  render(); /* draws the canvas caret at the final position, not wherever it was before focus */
+}
+/* Inverse of wordCharOffset: given a character offset in the raw text, finds
+   which word it falls in (or the nearest word edge, if it's sitting in
+   whitespace) and how many characters into that word it is — used to draw
+   the fake blinking caret at the right spot on the canvas. */
+function offsetToWordPosition(text,offset){
+  let idx=0, pos=0, prev=null;
+  const lines=text.split('\n');
+  for(let li=0;li<lines.length;li++){
+    const line=lines[li];
+    const re=/\S+/g; let m;
+    while((m=re.exec(line))){
+      const wStart=pos+m.index, wEnd=wStart+m[0].length;
+      if(offset>=wStart&&offset<=wEnd) return {gidx:idx,charsIntoWord:offset-wStart};
+      if(offset<wStart) return prev||{gidx:idx,charsIntoWord:0};
+      prev={gidx:idx,charsIntoWord:m[0].length};
+      idx++;
+    }
+    pos+=line.length+1;
+  }
+  return prev;
+}
+/* Finds how many characters of `word` (rendered in `style`) fit within
+   targetWidth of pixels, so a click lands between the actual nearest
+   letters rather than snapping to the start/end of the whole word. */
+function charIndexInWord(word,style,targetWidth){
+  let best=0,bestDiff=Infinity;
+  for(let n=0;n<=word.length;n++){
+    const diff=Math.abs(textWidth(word.slice(0,n),style)-targetWidth);
+    if(diff<bestDiff){ bestDiff=diff; best=n; }
+  }
+  return best;
 }
 
 function wrapParagraph(words,style,frameWidth){
@@ -908,8 +962,9 @@ function render(){
   const dateG=document.createElementNS(NS,'g');
   const hitG=document.createElementNS(NS,'g'); hitG.setAttribute('class','ui-only');
   const frameG=document.createElementNS(NS,'g'); frameG.setAttribute('class','ui-only');
+  const caretG=document.createElementNS(NS,'g'); caretG.setAttribute('class','ui-only');
   contentG.appendChild(rectG); contentG.appendChild(subG); contentG.appendChild(textG); contentG.appendChild(dateG);
-  board.appendChild(contentG); board.appendChild(hitG); board.appendChild(frameG);
+  board.appendChild(contentG); board.appendChild(hitG); board.appendChild(frameG); board.appendChild(caretG);
 
   /* ---- title: tokenize, wrap, measure ---- */
   const paragraphs=tokenize(S.text);
@@ -975,6 +1030,8 @@ function render(){
   const words=[]; /* flat, for allWords() */
   const lineRuns=[];
   let lastLineRightEdge=null; /* last visual line's right edge, including highlight padding if its last word is highlighted */
+  const caretTarget=(caretVisible&&document.activeElement===$('text'))
+    ?offsetToWordPosition(S.text,$('text').selectionStart):null;
   visualLines.forEach(function(line,i){
     const baseline=firstBaseline+i*pitch;
     const delta=targetLeft-lineBox[i].x;
@@ -1030,6 +1087,20 @@ function render(){
     });
 
     const hitTop=baseline-cap-padVWhole;
+
+    if(caretTarget){
+      const cw=lw.find(o=>o.gidx===caretTarget.gidx);
+      if(cw){
+        const caretX=cw.left+textWidth(cw.text.slice(0,caretTarget.charsIntoWord),style);
+        const caret=document.createElementNS(NS,'rect');
+        caret.setAttribute('x',caretX); caret.setAttribute('y',hitTop);
+        caret.setAttribute('width',Math.max(2,size*0.012)); caret.setAttribute('height',refBlockH);
+        caret.setAttribute('fill',wordFontColor(cw.gidx)||fontColor);
+        caret.setAttribute('class','text-caret');
+        caretG.appendChild(caret);
+      }
+    }
+
     lw.forEach(function(w){
       const hit=document.createElementNS(NS,'rect');
       hit.setAttribute('x',w.left); hit.setAttribute('y',hitTop);
@@ -1038,14 +1109,23 @@ function render(){
       hit.setAttribute('class','hit-word');
       hit.style.cursor='pointer';
       hit.addEventListener('click',function(ev){
-        /* single click: jump into the sidebar text field at roughly this
-           word, so you can start typing without hunting for it — a real
-           in-canvas caret isn't practical here since the canvas has its own
-           wrap engine, independent of the browser's text layout */
-        const r=hit.getBoundingClientRect();
-        const before=(ev.clientX-r.left)<r.width/2;
-        const start=wordCharOffset(S.text,w.gidx);
-        focusTextAt(before?start:start+w.text.length);
+        /* single click: jump into the sidebar text field at the nearest
+           character to where you actually clicked, mid-word included —
+           there's no real in-canvas text input here (the canvas has its own
+           wrap engine, independent of the browser's text layout), just a
+           fake blinking caret drawn at the resulting cursor position.
+           Native 'click' fires even during a double-click gesture (before
+           'dblclick'), and this action steals focus and rebuilds the whole
+           board — doing that on every click broke double-click detection,
+           so it's deferred and cancelled if a second click arrives in time. */
+        if(hit._clickTimer){ clearTimeout(hit._clickTimer); hit._clickTimer=null; return; }
+        const p=svgPoint(ev);
+        const n=charIndexInWord(w.text,style,p.x-w.left);
+        const offset=wordCharOffset(S.text,w.gidx)+n;
+        hit._clickTimer=setTimeout(function(){
+          hit._clickTimer=null;
+          focusTextAt(offset);
+        },250);
       });
       hit.addEventListener('dblclick',function(ev){
         pushHistory();
