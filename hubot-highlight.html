@@ -171,24 +171,11 @@ Project Wrap-up</textarea>
       <span class="lbl">Type</span>
       <div class="field">
         <label>Font size</label>
-        <div class="btn-row" style="margin-bottom:6px">
+        <div class="btn-row">
           <button data-size="150">150px</button>
           <button data-size="100">100px</button>
           <button data-size="50">50px</button>
         </div>
-        <div class="row"><input type="range" id="fontSize" min="40" max="260" value="150"><input type="number" id="fontSizeN" min="10" max="600" value="150"></div>
-      </div>
-      <div class="field">
-        <label>Line height (% of font size)</label>
-        <div class="row"><input type="range" id="lineHeight" min="70" max="140" value="95"><input type="number" id="lineHeightN" min="50" max="200" value="95"></div>
-      </div>
-      <div class="field">
-        <label>Letter spacing (% of font size)</label>
-        <div class="row"><input type="range" id="tracking" min="-15" max="15" value="-4"><input type="number" id="trackingN" min="-30" max="30" value="-4"></div>
-      </div>
-      <div class="field">
-        <label>Cap height (% of measured)</label>
-        <div class="row"><input type="range" id="capPct" min="10" max="200" step="1" value="67"><input type="number" id="capPctN" min="10" max="200" step="1" value="67"></div>
       </div>
     </div>
 
@@ -254,6 +241,31 @@ const PRESETS=[
   {name:'Harvest / Earth',        pad:'#FFE57B', font:'#5F4D00'},
   {name:'Dusk / Dark Purple',     pad:'#D0B6FF', font:'#4D1061'},
   {name:'Dusk / Midnight',        pad:'#D0B6FF', font:'#322234'}
+];
+/* the full brand palette, single colours — used where only one colour is
+   needed (the subtitle), as opposed to PRESETS' curated font+highlight pairs */
+const PALETTE=[
+  {name:'First Light',     hex:'#F1EFFD'},
+  {name:'Dusk',            hex:'#D0B6FF'},
+  {name:'Violet',          hex:'#A87BFE'},
+  {name:'Bloom',           hex:'#B638FF'},
+  {name:'Dark Purple',     hex:'#4D1061'},
+  {name:'Open Air',        hex:'#FFFEEE'},
+  {name:'Light Harvest',   hex:'#FFF6D1'},
+  {name:'Harvest',         hex:'#FFE57B'},
+  {name:'Earth',           hex:'#5F4D00'},
+  {name:'Marigold Hint',   hex:'#FFFAF6'},
+  {name:'Marigold Light',  hex:'#FFE4D1'},
+  {name:'Marigold',        hex:'#FF9C63'},
+  {name:'Soil',            hex:'#75153A'},
+  {name:'Apple Hint',      hex:'#F7FFE4'},
+  {name:'Light Green',     hex:'#EBFCC2'},
+  {name:'Apple',           hex:'#C9EB9D'},
+  {name:'Elder',           hex:'#314234'},
+  {name:'Midnight',        hex:'#322234'},
+  {name:'Stone Hint',      hex:'#D9D7CA'},
+  {name:'Stone',           hex:'#EEEDE3'},
+  {name:'White',           hex:'#FFFFFF'}
 ];
 const ZOOM_MIN=50, ZOOM_MAX=150, ZOOM_STEP=12.5;
 const GAP_ABOVE_SUBTITLE=0.14;   /* x font size, gap between subtitle and title */
@@ -337,16 +349,6 @@ window.addEventListener('keydown',function(e){
 });
 
 /* ---------- controls ---------- */
-function linkPair(rangeId,numId,key){
-  const r=$(rangeId), n=$(numId);
-  function apply(v){ S[key]=+v; syncInputs(); render(); }
-  r.addEventListener('input',()=>{ pushHistoryCoalesced(); apply(r.value); });
-  n.addEventListener('input',()=>{ pushHistoryCoalesced(); apply(n.value); });
-}
-linkPair('fontSize','fontSizeN','fontSize');
-linkPair('lineHeight','lineHeightN','lineHeight');
-linkPair('tracking','trackingN','tracking');
-linkPair('capPct','capPctN','capPct');
 
 document.querySelectorAll('[data-size]').forEach(function(btn){
   btn.addEventListener('click',function(){
@@ -451,12 +453,81 @@ function initPresetCombo(triggerId,menuId,getState,setState){
   return {refresh:refresh};
 }
 
+/* Same hover-preview/click-to-commit combo, but for a single colour picked
+   from the full brand palette rather than a font+highlight pair — used for
+   the subtitle, which only ever needs one colour. */
+function initColorCombo(triggerId,menuId,list,getState,setState){
+  const trigger=$(triggerId), menu=$(menuId);
+  const dot=trigger.querySelector('.swatch-dot');
+  const label=trigger.querySelector('.combo-label');
+  let original=null, open=false;
+
+  function matchIndex(hex){
+    for(let i=0;i<list.length;i++) if(list[i].hex.toLowerCase()===hex.toLowerCase()) return i;
+    return -1;
+  }
+  function refresh(){
+    const hex=getState();
+    const idx=matchIndex(hex);
+    dot.classList.toggle('custom',idx<0);
+    dot.style.background=idx>=0?list[idx].hex:'';
+    label.textContent=idx>=0?list[idx].name:'Custom';
+  }
+  function preview(hex){ if(!open) return; setState(hex); render(); }
+  function openMenu(){
+    if(open) return;
+    open=true;
+    original=getState();
+    menu.innerHTML=list.map((c,i)=>
+      '<button type="button" class="combo-item" data-i="'+i+'">'+
+        '<span class="swatch-dot" style="background:'+c.hex+'"></span>'+
+        '<span class="name">'+c.name+'</span></button>').join('');
+    menu.hidden=false;
+  }
+  function closeMenu(committedHex){
+    if(!open) return;
+    open=false;
+    menu.hidden=true;
+    if(committedHex!=null&&committedHex!==original){
+      setState(original);
+      pushHistory();
+      setState(committedHex);
+    }else{
+      setState(original);
+    }
+    refresh(); render();
+  }
+
+  trigger.addEventListener('click',function(e){
+    e.stopPropagation();
+    if(open) closeMenu(null); else openMenu();
+  });
+  menu.addEventListener('mouseover',function(e){
+    const b=e.target.closest('.combo-item'); if(!b) return;
+    preview(list[+b.dataset.i].hex);
+  });
+  menu.addEventListener('mouseleave',function(){ preview(original); });
+  menu.addEventListener('click',function(e){
+    const b=e.target.closest('.combo-item'); if(!b) return;
+    closeMenu(list[+b.dataset.i].hex);
+  });
+  document.addEventListener('click',function(e){
+    if(open&&!trigger.contains(e.target)&&!menu.contains(e.target)) closeMenu(null);
+  });
+  document.addEventListener('keydown',function(e){
+    if(open&&e.key==='Escape') closeMenu(null);
+  });
+
+  refresh();
+  return {refresh:refresh};
+}
+
 const titlePresetCombo=initPresetCombo('titlePresetTrigger','titlePresetMenu',
   ()=>({font:S.fontColor,pad:S.padColor}),
   (v)=>{ S.fontColor=v.font; S.padColor=v.pad; });
-const subPresetCombo=initPresetCombo('subPresetTrigger','subPresetMenu',
-  ()=>({font:S.subColor}),
-  (v)=>{ S.subColor=v.font; });
+const subPresetCombo=initColorCombo('subPresetTrigger','subPresetMenu',PALETTE,
+  ()=>S.subColor,
+  (hex)=>{ S.subColor=hex; });
 const datePresetCombo=initPresetCombo('datePresetTrigger','datePresetMenu',
   ()=>({font:S.dateColor,pad:S.datePadColor}),
   (v)=>{ S.dateColor=v.font; S.datePadColor=v.pad; });
@@ -528,7 +599,11 @@ function openWordPopover(gidx,clientX,clientY){
   function colorsFor(p){
     if(p==='clear') return undefined;
     if(p==='swap'){
-      const cur=S.wordColors[gidx]||{font:S.fontColor,pad:S.padColor};
+      /* base the swap on the word's true pre-open colour, not S.wordColors
+         (which preview() mutates live) — otherwise hovering a preset first
+         and then "swap" previews swapping that stale hover, not the word's
+         actual current colour */
+      const cur=original||{font:S.fontColor,pad:S.padColor};
       return {font:cur.pad,pad:cur.font};
     }
     const preset=PRESETS[+p];
@@ -652,10 +727,6 @@ function syncInputs(){
   $('dateToggle').classList.toggle('active',S.dateOn);
   datePresetCombo.refresh();
   $('dateMonth').value=S.dateMonth; $('dateYear').value=S.dateYear;
-  $('fontSize').value=S.fontSize; $('fontSizeN').value=S.fontSize;
-  $('lineHeight').value=S.lineHeight; $('lineHeightN').value=S.lineHeight;
-  $('tracking').value=S.tracking; $('trackingN').value=S.tracking;
-  $('capPct').value=S.capPct; $('capPctN').value=S.capPct;
   titlePresetCombo.refresh();
   document.querySelectorAll('[data-scale]').forEach(function(btn){
     btn.classList.toggle('active',+btn.dataset.scale===S.exportScale);
