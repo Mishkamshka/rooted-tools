@@ -61,14 +61,6 @@
   .hint{font-size:11px;color:var(--muted);line-height:1.55;margin:9px 0 0}
   .btn-row{display:flex;gap:8px}
   .btn-row button{width:auto;flex:1}
-  .presets{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
-  .preset-swatch{border:1px solid var(--rule);padding:0;cursor:pointer;overflow:hidden;
-    display:flex;flex-direction:column;background:none}
-  .preset-swatch .bar{height:20px;width:100%}
-  .preset-swatch .name{font-size:9px;padding:4px 5px;font-family:var(--mono);color:var(--ink);
-    text-align:left;letter-spacing:0;text-transform:none;background:#fff}
-  .preset-swatch:hover{border-color:var(--ink)}
-  .preset-swatch.selected{outline:2px solid var(--select);outline-offset:-1px}
   select{width:100%;padding:7px;border:1px solid var(--rule);font-family:var(--mono);font-size:12px;background:#fff}
   .popover{position:fixed;z-index:50;background:#fff;border:1px solid var(--ink);padding:8px;
     box-shadow:0 4px 14px rgba(0,0,0,.18);display:flex;flex-direction:column;gap:6px;min-width:170px}
@@ -134,10 +126,6 @@
           <div class="combo-menu" id="subPresetMenu" hidden></div>
         </div>
       </div>
-      <div class="field">
-        <label>Colour (custom)</label>
-        <div class="swatch-row"><input type="color" id="subColor" value="#332234"><span class="hex" id="subColorHex">#332234</span></div>
-      </div>
       <p class="hint">Sits above the title. Plain text — it can't be highlighted or clicked.</p>
     </div>
 
@@ -149,7 +137,7 @@ Project Wrap-up</textarea>
         <button id="selectAllBtn">Select all</button>
         <button id="deselectAllBtn">Deselect all</button>
       </div>
-      <p class="hint">Press Enter for a new line. Left-click any word in the preview to drop its highlight; click again to bring it back. Right-click a word to give it its own colour combo.</p>
+      <p class="hint">Press Enter for a new line. Left-click any word in the preview to drop its highlight; click again to bring it back. Right-click a word to give it its own colour combo. Drag the green handle on the preview to move the title, or its edge handle to resize.</p>
     </div>
 
     <div class="panel">
@@ -174,14 +162,6 @@ Project Wrap-up</textarea>
           </button>
           <div class="combo-menu" id="datePresetMenu" hidden></div>
         </div>
-      </div>
-      <div class="field">
-        <label>Font (custom)</label>
-        <div class="swatch-row"><input type="color" id="dateColor" value="#332234"><span class="hex" id="dateColorHex">#332234</span></div>
-      </div>
-      <div class="field">
-        <label>Highlight (custom)</label>
-        <div class="swatch-row"><input type="color" id="datePadColor" value="#D0B6FF"><span class="hex" id="datePadColorHex">#D0B6FF</span></div>
       </div>
       <button id="dateSwapBtn">&#8646; Swap font / highlight</button>
       <p class="hint">Prints as "Month Year", right-aligned and touching the last line of the title, with its own highlight.</p>
@@ -213,77 +193,16 @@ Project Wrap-up</textarea>
     </div>
 
     <div class="panel">
-      <span class="lbl">Text box</span>
-      <p class="hint" style="margin:0 0 9px">Drag the handle to move, the edge handle to resize width — the title wraps to fit. Leave alone for auto-centred sizing.</p>
-      <div class="field">
-        <label>Left (px)</label>
-        <div class="row"><input type="number" id="frameX" placeholder="auto"></div>
-      </div>
-      <div class="field">
-        <label>Top (px)</label>
-        <div class="row"><input type="number" id="frameY" placeholder="auto"></div>
-      </div>
-      <div class="field">
-        <label>Width (px)</label>
-        <div class="row"><input type="number" id="frameW" placeholder="auto"></div>
-      </div>
-      <button id="frameReset">Reset to auto</button>
-    </div>
-
-    <div class="panel">
-      <span class="lbl">Padding — whole line</span>
-      <p class="hint" style="margin:0 0 9px">Applies while every word in a line is highlighted.</p>
-      <div class="field">
-        <label>Left (% of font size)</label>
-        <div class="row"><input type="range" id="padStart" min="-30" max="30" step="0.25" value="11.5"><input type="number" id="padStartN" min="-60" max="60" step="0.25" value="11.5"></div>
-      </div>
-      <div class="field">
-        <label>Right (% of font size)</label>
-        <div class="row"><input type="range" id="padROld" min="0" max="30" step="0.25" value="17"><input type="number" id="padROldN" min="0" max="60" step="0.25" value="17"></div>
-      </div>
-      <div class="field">
-        <label>Top &amp; bottom (% of font size)</label>
-        <div class="row"><input type="range" id="padVOld" min="0" max="30" step="0.25" value="17"><input type="number" id="padVOldN" min="0" max="60" step="0.25" value="17"></div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <span class="lbl">Padding — after clicking a word</span>
-      <p class="hint" style="margin:0 0 9px">Applies once a line splits into a partial run, e.g. clicking one word off.</p>
-      <div class="field">
-        <label>Left, run starts the line (% of font size)</label>
-        <div class="row"><input type="range" id="padStart2" min="-30" max="30" step="0.25" value="11.5"><input type="number" id="padStart2N" min="-60" max="60" step="0.25" value="11.5"></div>
-      </div>
-      <div class="field">
-        <label>Left, run starts mid-line (% of font size)</label>
-        <div class="row"><input type="range" id="padMid" min="-30" max="30" step="0.25" value="4"><input type="number" id="padMidN" min="-60" max="60" step="0.25" value="4"></div>
-      </div>
-      <div class="field">
-        <label>Right (% of font size)</label>
-        <div class="row"><input type="range" id="padROther" min="0" max="30" step="0.25" value="9"><input type="number" id="padROtherN" min="0" max="60" step="0.25" value="9"></div>
-      </div>
-      <div class="field">
-        <label>Top &amp; bottom (% of font size)</label>
-        <div class="row"><input type="range" id="padOther" min="0" max="30" step="0.25" value="17"><input type="number" id="padOtherN" min="0" max="60" step="0.25" value="17"></div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <span class="lbl">Stylistic alternates</span>
-      <div class="alt-list" id="alts"></div>
-      <p class="hint">Hubot doesn’t publish which tag is which. These are its four documented alternates, in the order they’re listed — if “Alternate r” misses, try the others.</p>
-    </div>
-
-    <div class="panel">
       <span class="lbl">Colour presets</span>
-      <div class="presets" id="presets"></div>
       <div class="field">
-        <label>Font (custom)</label>
-        <div class="swatch-row"><input type="color" id="fontColor" value="#332234"><span class="hex" id="fontColorHex">#332234</span></div>
-      </div>
-      <div class="field">
-        <label>Highlight (custom)</label>
-        <div class="swatch-row"><input type="color" id="padColor" value="#D0B6FF"><span class="hex" id="padColorHex">#D0B6FF</span></div>
+        <div class="combo" id="titlePresetCombo">
+          <button type="button" class="combo-trigger" id="titlePresetTrigger">
+            <span class="swatch-dot"></span>
+            <span class="combo-label">—</span>
+            <span class="combo-caret">&#9662;</span>
+          </button>
+          <div class="combo-menu" id="titlePresetMenu" hidden></div>
+        </div>
       </div>
       <button id="colorSwapBtn" style="margin-top:2px">&#8646; Swap font / highlight</button>
       <p class="hint">Left-click a word to toggle its highlight. Right-click a word to give it its own colour combo.</p>
@@ -324,10 +243,10 @@ Project Wrap-up</textarea>
 <script>
 const NS='http://www.w3.org/2000/svg';
 const ALTS=[
-  {tag:'cv01', name:'Rounded dots', on:false},
-  {tag:'cv02', name:'Alternate lowercase l', on:false},
-  {tag:'cv03', name:'Alternate r', on:true},
-  {tag:'cv04', name:'Serifless uppercase I', on:false}
+  {tag:'ss01', name:'Rounded dots', on:false},
+  {tag:'ss02', name:'Alternate lowercase l', on:true},
+  {tag:'ss03', name:'Alternate r', on:true},
+  {tag:'ss04', name:'Serifless uppercase I', on:false}
 ];
 const PRESETS=[
   {name:'First Light / Midnight', pad:'#F1EFFD', font:'#322234'},
@@ -347,14 +266,14 @@ function defaultState(){
   const now=new Date();
   return {
     text:'Black Maternal Futures\nProject Wrap-up',
-    subtitle:'', subColor:'#332234',
-    dateOn:false, dateColor:'#332234', datePadColor:'#D0B6FF',
+    subtitle:'', subColor:'#322234',
+    dateOn:false, dateColor:'#322234', datePadColor:'#D0B6FF',
     dateMonth:now.getMonth()+1, dateYear:clamp(now.getFullYear(),YEAR_MIN,YEAR_MAX),
     frame:{x:null,y:null,width:null},
     fontSize:150, lineHeight:95, tracking:-4, capPct:67,
-    padStart:11.5, padROld:17, padVOld:17,
-    padStart2:11.5, padMid:4, padROther:9, padOther:17,
-    fontColor:'#332234', padColor:'#D0B6FF',
+    padStart:10.5, padROld:17, padVOld:17,
+    padStart2:10.5, padMid:4, padROther:9, padOther:17,
+    fontColor:'#322234', padColor:'#D0B6FF',
     alts:ALTS.map(a=>a.on),
     off:{}, wordColors:{},
     zoom:100, exportScale:3
@@ -373,6 +292,7 @@ const board=document.getElementById('board');
 const $=id=>document.getElementById(id);
 function flash(m){ const el=$('status'); el.textContent=m; clearTimeout(flash.t); flash.t=setTimeout(()=>el.textContent='',3200); }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function twoTone(pad,font){ return 'linear-gradient(135deg,'+pad+' 50%,'+font+' 50%)'; }
 
 /* ---------- history (undo/redo) ---------- */
 let history=[], future=[], lastPushT=0;
@@ -427,13 +347,6 @@ linkPair('fontSize','fontSizeN','fontSize');
 linkPair('lineHeight','lineHeightN','lineHeight');
 linkPair('tracking','trackingN','tracking');
 linkPair('capPct','capPctN','capPct');
-linkPair('padStart','padStartN','padStart');
-linkPair('padROld','padROldN','padROld');
-linkPair('padVOld','padVOldN','padVOld');
-linkPair('padStart2','padStart2N','padStart2');
-linkPair('padMid','padMidN','padMid');
-linkPair('padROther','padROtherN','padROther');
-linkPair('padOther','padOtherN','padOther');
 
 document.querySelectorAll('[data-size]').forEach(function(btn){
   btn.addEventListener('click',function(){
@@ -450,24 +363,6 @@ document.querySelectorAll('[data-scale]').forEach(function(btn){
   });
 });
 
-function syncColorField(id,hexId,value){
-  $(id).value=value; $(hexId).textContent=value.toUpperCase();
-}
-function colorField(inputId,hexId,key){
-  const inp=$(inputId);
-  inp.addEventListener('input',()=>{
-    pushHistoryCoalesced();
-    S[key]=inp.value;
-    /* a manual edit may no longer match whichever preset the dropdown shows,
-       so resync it (and the hex label) rather than just the two directly */
-    syncInputs(); render();
-  });
-}
-colorField('fontColor','fontColorHex','fontColor');
-colorField('padColor','padColorHex','padColor');
-colorField('subColor','subColorHex','subColor');
-colorField('dateColor','dateColorHex','dateColor');
-colorField('datePadColor','datePadColorHex','datePadColor');
 
 $('colorSwapBtn').addEventListener('click',function(){
   pushHistory();
@@ -483,8 +378,9 @@ $('dateSwapBtn').addEventListener('click',function(){
 /* A popover-style preset picker: hovering an option previews it live on the
    canvas and in the raw colour pickers; moving off without clicking reverts;
    clicking locks it in as one undo step (snapshotting the true pre-open
-   state, not whatever was last hovered). "Custom" leaves the colour as-is
-   and just closes the menu. */
+   state, not whatever was last hovered). The menu only ever lists the brand
+   presets — no "Custom" entry — though the trigger still reports "Custom" as
+   status text if the current colours were set via the raw pickers instead. */
 function initPresetCombo(triggerId,menuId,getState,setState){
   const trigger=$(triggerId), menu=$(menuId);
   const dot=trigger.querySelector('.swatch-dot');
@@ -495,7 +391,7 @@ function initPresetCombo(triggerId,menuId,getState,setState){
     const st=getState();
     const idx=matchPresetIndex(st.font,('pad' in st)?st.pad:null);
     dot.classList.toggle('custom',idx<0);
-    dot.style.background=idx>=0?PRESETS[idx].pad:'';
+    dot.style.background=idx>=0?twoTone(PRESETS[idx].pad,PRESETS[idx].font):'';
     label.textContent=idx>=0?PRESETS[idx].name:'Custom';
   }
   function preview(state){
@@ -511,10 +407,8 @@ function initPresetCombo(triggerId,menuId,getState,setState){
     original=getState();
     menu.innerHTML=PRESETS.map((p,i)=>
       '<button type="button" class="combo-item" data-i="'+i+'">'+
-        '<span class="swatch-dot" style="background:'+p.pad+'"></span>'+
-        '<span class="name">'+p.name+'</span></button>').join('')+
-      '<button type="button" class="combo-item" data-i="custom">'+
-        '<span class="swatch-dot custom"></span><span class="name">Custom</span></button>';
+        '<span class="swatch-dot" style="background:'+twoTone(p.pad,p.font)+'"></span>'+
+        '<span class="name">'+p.name+'</span></button>').join('');
     menu.hidden=false;
   }
   function closeMenu(committed){
@@ -537,14 +431,12 @@ function initPresetCombo(triggerId,menuId,getState,setState){
   });
   menu.addEventListener('mouseover',function(e){
     const b=e.target.closest('.combo-item'); if(!b) return;
-    if(b.dataset.i==='custom'){ preview(original); return; }
     const p=PRESETS[+b.dataset.i];
     preview({font:p.font,pad:p.pad});
   });
   menu.addEventListener('mouseleave',function(){ preview(original); });
   menu.addEventListener('click',function(e){
     const b=e.target.closest('.combo-item'); if(!b) return;
-    if(b.dataset.i==='custom'){ closeMenu(null); return; }
     const p=PRESETS[+b.dataset.i];
     closeMenu({font:p.font,pad:p.pad});
   });
@@ -559,21 +451,15 @@ function initPresetCombo(triggerId,menuId,getState,setState){
   return {refresh:refresh};
 }
 
+const titlePresetCombo=initPresetCombo('titlePresetTrigger','titlePresetMenu',
+  ()=>({font:S.fontColor,pad:S.padColor}),
+  (v)=>{ S.fontColor=v.font; S.padColor=v.pad; });
 const subPresetCombo=initPresetCombo('subPresetTrigger','subPresetMenu',
   ()=>({font:S.subColor}),
-  (v)=>{ S.subColor=v.font; syncColorField('subColor','subColorHex',v.font); });
+  (v)=>{ S.subColor=v.font; });
 const datePresetCombo=initPresetCombo('datePresetTrigger','datePresetMenu',
   ()=>({font:S.dateColor,pad:S.datePadColor}),
-  (v)=>{ S.dateColor=v.font; S.datePadColor=v.pad; syncColorField('dateColor','dateColorHex',v.font); syncColorField('datePadColor','datePadColorHex',v.pad); });
-
-$('alts').innerHTML=ALTS.map((a,i)=>
-  '<label><input type="checkbox" data-alt="'+i+'" '+(a.on?'checked':'')+'> '+a.name+'</label>').join('');
-$('alts').addEventListener('change',function(e){
-  const i=e.target.dataset.alt; if(i==null) return;
-  pushHistory();
-  S.alts[i]=e.target.checked;
-  render();
-});
+  (v)=>{ S.dateColor=v.font; S.datePadColor=v.pad; });
 
 $('text').addEventListener('input',function(){ pushHistoryCoalesced(); S.text=$('text').value; render(); });
 $('subtitle').addEventListener('input',function(){ pushHistoryCoalesced(); S.subtitle=$('subtitle').value; render(); });
@@ -605,53 +491,73 @@ $('deselectAllBtn').addEventListener('click',function(){
   render();
 });
 
-/* ---------- colour presets ---------- */
-$('presets').innerHTML=PRESETS.map((p,i)=>
-  '<button type="button" class="preset-swatch" data-preset="'+i+'">'+
-    '<span class="bar" style="background:'+p.pad+'"></span>'+
-    '<span class="name">'+p.name+'</span>'+
-  '</button>').join('');
-$('presets').addEventListener('click',function(e){
-  const btn=e.target.closest('[data-preset]'); if(!btn) return;
-  const p=PRESETS[+btn.dataset.preset];
-  pushHistory();
-  S.fontColor=p.font; S.padColor=p.pad;
-  syncInputs(); render();
-});
-
-
-function closeWordPopover(){
-  const p=document.getElementById('wordPopover');
-  if(p) p.remove();
+/* The right-click word popover: hovering a preset previews it live on the
+   canvas (same pattern as the panel colour combos); moving off without
+   clicking reverts to whatever the word had before the popover opened;
+   clicking locks it in as one undo step. */
+let activeWordPopover=null; /* {el,revert} for the currently open popover, if any */
+function closeWordPopover(cancel){
+  if(!activeWordPopover) return;
+  if(cancel) activeWordPopover.revert();
+  activeWordPopover.el.remove();
+  activeWordPopover=null;
 }
 document.addEventListener('click',function(e){
-  const p=document.getElementById('wordPopover');
-  if(p&&!p.contains(e.target)&&!e.target.closest('.hit-word')) closeWordPopover();
+  if(activeWordPopover&&!activeWordPopover.el.contains(e.target)&&!e.target.closest('.hit-word')) closeWordPopover(true);
+});
+document.addEventListener('keydown',function(e){
+  if(activeWordPopover&&e.key==='Escape') closeWordPopover(true);
 });
 function openWordPopover(gidx,clientX,clientY){
-  closeWordPopover();
+  closeWordPopover(true);
   const el=document.createElement('div');
   el.id='wordPopover'; el.className='popover';
   el.style.left=Math.min(clientX,window.innerWidth-190)+'px';
   el.style.top=Math.min(clientY,window.innerHeight-220)+'px';
   el.innerHTML=PRESETS.map((p,i)=>
     '<button type="button" data-p="'+i+'" style="display:flex;align-items:center;gap:7px;justify-content:flex-start">'+
-      '<span style="width:14px;height:14px;background:'+p.pad+';border:1px solid var(--rule);flex:none"></span>'+
+      '<span style="width:14px;height:14px;background:'+twoTone(p.pad,p.font)+';border:1px solid var(--rule);flex:none"></span>'+
       '<span class="name">'+p.name+'</span></button>').join('')+
     '<button type="button" data-p="swap">&#8646; Swap this word\'s colours</button>'+
     '<button type="button" data-p="clear">Clear override</button>';
   document.body.appendChild(el);
+
+  const original=S.wordColors[gidx]; /* undefined if this word has no override yet */
+  let open=true;
+
+  function colorsFor(p){
+    if(p==='clear') return undefined;
+    if(p==='swap'){
+      const cur=S.wordColors[gidx]||{font:S.fontColor,pad:S.padColor};
+      return {font:cur.pad,pad:cur.font};
+    }
+    const preset=PRESETS[+p];
+    return {font:preset.font,pad:preset.pad};
+  }
+  function apply(v){ if(v===undefined) delete S.wordColors[gidx]; else S.wordColors[gidx]=v; }
+  function preview(p){ if(!open) return; apply(colorsFor(p)); render(); }
+  function revert(){ apply(original); render(); }
+  function commit(p){
+    open=false;
+    apply(original);
+    pushHistory();
+    apply(colorsFor(p));
+    render();
+    el.remove();
+    activeWordPopover=null;
+  }
+
+  el.addEventListener('mouseover',function(e){
+    const b=e.target.closest('button'); if(!b) return;
+    preview(b.dataset.p);
+  });
+  el.addEventListener('mouseleave',function(){ if(open) revert(); });
   el.addEventListener('click',function(e){
     const b=e.target.closest('button'); if(!b) return;
-    pushHistory();
-    if(b.dataset.p==='clear') delete S.wordColors[gidx];
-    else if(b.dataset.p==='swap'){
-      const cur=S.wordColors[gidx]||{font:S.fontColor,pad:S.padColor};
-      S.wordColors[gidx]={font:cur.pad,pad:cur.font};
-    }
-    else{ const p=PRESETS[+b.dataset.p]; S.wordColors[gidx]={font:p.font,pad:p.pad}; }
-    closeWordPopover(); render();
+    commit(b.dataset.p);
   });
+
+  activeWordPopover={el:el,revert:revert};
 }
 
 /* ---------- zoom ---------- */
@@ -666,22 +572,6 @@ function setZoom(z){
 $('zoomIn').addEventListener('click',function(){ setZoom(S.zoom+ZOOM_STEP); });
 $('zoomOut').addEventListener('click',function(){ setZoom(S.zoom-ZOOM_STEP); });
 
-/* ---------- frame numeric fields ---------- */
-function frameField(id,key){
-  $(id).addEventListener('change',function(){
-    pushHistory();
-    const v=$(id).value;
-    ensureFrame();
-    S.frame[key]=v===''?null:+v;
-    render();
-  });
-}
-frameField('frameX','x'); frameField('frameY','y'); frameField('frameW','width');
-$('frameReset').addEventListener('click',function(){
-  pushHistory();
-  S.frame={x:null,y:null,width:null};
-  syncInputs(); render();
-});
 function ensureFrame(){
   if(S.frame.x==null||S.frame.y==null||S.frame.width==null){
     const a=lastAutoFrame||{x:0,y:0,width:400};
@@ -757,33 +647,16 @@ function matchPresetIndex(font,pad){
 function syncInputs(){
   $('text').value=S.text;
   $('subtitle').value=S.subtitle;
-  $('subColor').value=S.subColor; $('subColorHex').textContent=S.subColor.toUpperCase();
   subPresetCombo.refresh();
   $('dateToggle').textContent=S.dateOn?'On':'Off';
   $('dateToggle').classList.toggle('active',S.dateOn);
-  $('dateColor').value=S.dateColor; $('dateColorHex').textContent=S.dateColor.toUpperCase();
-  $('datePadColor').value=S.datePadColor; $('datePadColorHex').textContent=S.datePadColor.toUpperCase();
   datePresetCombo.refresh();
   $('dateMonth').value=S.dateMonth; $('dateYear').value=S.dateYear;
   $('fontSize').value=S.fontSize; $('fontSizeN').value=S.fontSize;
   $('lineHeight').value=S.lineHeight; $('lineHeightN').value=S.lineHeight;
   $('tracking').value=S.tracking; $('trackingN').value=S.tracking;
   $('capPct').value=S.capPct; $('capPctN').value=S.capPct;
-  $('padStart').value=S.padStart; $('padStartN').value=S.padStart;
-  $('padROld').value=S.padROld; $('padROldN').value=S.padROld;
-  $('padVOld').value=S.padVOld; $('padVOldN').value=S.padVOld;
-  $('padStart2').value=S.padStart2; $('padStart2N').value=S.padStart2;
-  $('padMid').value=S.padMid; $('padMidN').value=S.padMid;
-  $('padROther').value=S.padROther; $('padROtherN').value=S.padROther;
-  $('padOther').value=S.padOther; $('padOtherN').value=S.padOther;
-  $('fontColor').value=S.fontColor; $('fontColorHex').textContent=S.fontColor.toUpperCase();
-  $('padColor').value=S.padColor; $('padColorHex').textContent=S.padColor.toUpperCase();
-  $('frameX').value=S.frame.x==null?'':S.frame.x;
-  $('frameY').value=S.frame.y==null?'':S.frame.y;
-  $('frameW').value=S.frame.width==null?'':S.frame.width;
-  document.querySelectorAll('#alts input[type=checkbox]').forEach(function(cb){
-    cb.checked=S.alts[+cb.dataset.alt];
-  });
+  titlePresetCombo.refresh();
   document.querySelectorAll('[data-scale]').forEach(function(btn){
     btn.classList.toggle('active',+btn.dataset.scale===S.exportScale);
   });
@@ -792,8 +665,8 @@ function syncInputs(){
 
 /* ---------- type helpers ---------- */
 function featureSettings(){
-  const on=ALTS.filter((a,i)=>S.alts[i]).map(a=>'"'+a.tag+'" 1');
-  return on.length?on.join(','):'normal';
+  const on=['"tnum" 1'].concat(ALTS.filter((a,i)=>S.alts[i]).map(a=>'"'+a.tag+'" 1'));
+  return on.join(',');
 }
 function fontStyle(size,trackPct,wght,wdth){
   wght=wght||450; wdth=wdth||100;
