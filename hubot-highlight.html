@@ -15,23 +15,33 @@
   html{scrollbar-gutter:stable;overflow-y:scroll}
   body{margin:0;background:var(--paper);color:var(--ink);
     font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;padding:0 20px 20px}
-  header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
-    border-bottom:1px solid var(--ink);padding:20px 0 10px;margin-bottom:18px;flex-wrap:wrap;
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    border-bottom:1px solid var(--ink);padding:14px 0;margin-bottom:18px;flex-wrap:wrap;
     position:sticky;top:0;background:var(--paper);z-index:5}
   h1{font-size:17px;font-weight:500;margin:0;letter-spacing:-.01em}
   .lbl{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-family:var(--mono)}
-  #status{color:var(--select);min-height:12px}
+  #status{color:var(--select);min-height:12px;font-size:11px;font-family:var(--mono)}
+  .hdr-left{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .hdr-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .hdr-tools button{width:auto;padding:6px 9px;font-size:11px}
+  .zoomctl{display:flex;align-items:center;gap:0;border:1px solid var(--ink)}
+  .zoomctl button{width:26px;padding:6px 0;border:none;border-right:1px solid var(--ink)}
+  .zoomctl button:last-child{border-right:none;border-left:1px solid var(--ink)}
+  .zoomctl span{width:48px;text-align:center;font-family:var(--mono);font-size:11px}
   .wrap{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap}
   .canvas{flex:1 1 640px;min-width:300px;position:sticky;top:calc(var(--hh,68px) + 18px);align-self:flex-start}
   /* the white here is the preview surface only — it is never part of the export */
-  .stage{background:#fff;border:1px solid var(--rule);display:flex;justify-content:center;padding:6px}
-  svg#board{width:100%;height:auto;max-height:calc(100vh - var(--hh,68px) - 40px);display:block}
+  .stage{background:#fff;border:1px solid var(--rule);display:flex;justify-content:center;padding:6px;overflow:auto}
+  svg#board{width:100%;height:auto;max-height:calc(100vh - var(--hh,68px) - 40px);display:block;flex:none}
   aside{flex:0 1 280px;min-width:260px;columns:1;column-gap:14px}
   aside > *{break-inside:avoid;margin-bottom:14px}
   .panel{border:1px solid var(--rule);background:#fff;padding:14px}
   .panel .lbl{display:block;margin-bottom:9px}
+  .panel .lbl-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+  .panel .lbl-row .lbl{margin-bottom:0}
   textarea{width:100%;padding:9px;border:1px solid var(--rule);font-size:14px;font-family:inherit;
     resize:vertical;min-height:90px;line-height:1.4}
+  textarea#subtitle{min-height:50px}
   .field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
   .field:last-child{margin-bottom:0}
   .field label{font-size:11px;color:var(--muted)}
@@ -47,7 +57,25 @@
     background:#fff;color:var(--ink);cursor:pointer;letter-spacing:.02em;width:100%}
   button:hover:not(:disabled){background:var(--ink);color:#fff}
   button:disabled{border-color:var(--rule);color:var(--rule);cursor:default}
+  button.active{background:var(--ink);color:#fff}
   .hint{font-size:11px;color:var(--muted);line-height:1.55;margin:9px 0 0}
+  .btn-row{display:flex;gap:8px}
+  .btn-row button{width:auto;flex:1}
+  .presets{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+  .preset-swatch{border:1px solid var(--rule);padding:0;cursor:pointer;overflow:hidden;
+    display:flex;flex-direction:column;background:none}
+  .preset-swatch .bar{height:20px;width:100%}
+  .preset-swatch .name{font-size:9px;padding:4px 5px;font-family:var(--mono);color:var(--ink);
+    text-align:left;letter-spacing:0;text-transform:none;background:#fff}
+  .preset-swatch:hover{border-color:var(--ink)}
+  .preset-swatch.selected{outline:2px solid var(--select);outline-offset:-1px}
+  select{width:100%;padding:7px;border:1px solid var(--rule);font-family:var(--mono);font-size:12px;background:#fff}
+  .popover{position:fixed;z-index:50;background:#fff;border:1px solid var(--ink);padding:8px;
+    box-shadow:0 4px 14px rgba(0,0,0,.18);display:flex;flex-direction:column;gap:6px;min-width:170px}
+  .popover .name{font-size:9px;font-family:var(--mono)}
+  .popover button{width:auto}
+  .frame-handle{cursor:move}
+  .frame-handle.resize{cursor:ew-resize}
   @media (max-width:900px){
     .canvas{position:static}
     aside{flex:1 1 100%;columns:260px}
@@ -57,11 +85,20 @@
 <body>
 
 <header>
-  <div style="display:flex;align-items:baseline;gap:14px">
+  <div class="hdr-left">
     <h1>Hubot Highlight</h1>
-    <span class="lbl">1920 &times; 1080 &middot; transparent export</span>
+    <span class="lbl" id="dims">1920 &times; 1080 &middot; cropped, transparent export</span>
   </div>
-  <span class="lbl" id="status"></span>
+  <div class="hdr-tools">
+    <button id="undoBtn" title="Undo">&#8634; Undo</button>
+    <button id="redoBtn" title="Redo">&#8635; Redo</button>
+    <div class="zoomctl">
+      <button id="zoomOut">&minus;</button>
+      <span id="zoomLbl">100%</span>
+      <button id="zoomIn">+</button>
+    </div>
+    <span class="lbl" id="status"></span>
+  </div>
 </header>
 
 <div class="wrap">
@@ -71,16 +108,43 @@
 
   <aside>
     <div class="panel">
-      <span class="lbl">Text</span>
+      <span class="lbl">Subtitle</span>
+      <textarea id="subtitle" spellcheck="false" placeholder="Optional line above the title"></textarea>
+      <div class="field" style="margin-top:9px">
+        <label>Subtitle colour</label>
+        <div class="swatch-row"><input type="color" id="subColor" value="#332234"><span class="hex" id="subColorHex">#332234</span></div>
+      </div>
+      <p class="hint">Sits above the title. Plain text — it can't be highlighted or clicked.</p>
+    </div>
+
+    <div class="panel">
+      <div class="lbl-row"><span class="lbl">Text</span></div>
       <textarea id="text" spellcheck="false">Black Maternal Futures
 Project Wrap-up</textarea>
+      <div class="btn-row" style="margin-top:9px">
+        <button id="selectAllBtn">Select all</button>
+        <button id="deselectAllBtn">Deselect all</button>
+      </div>
       <p class="hint">Press Enter for a new line. Click any word in the preview to drop its highlight; click again to bring it back.</p>
+    </div>
+
+    <div class="panel">
+      <div class="lbl-row">
+        <span class="lbl">Date</span>
+        <button id="dateToggle" style="width:auto;padding:5px 9px">Off</button>
+      </div>
+      <p class="hint">Prints as "Month Year" (today), right-aligned 30px below the title block. Uses the current highlight colour.</p>
     </div>
 
     <div class="panel">
       <span class="lbl">Type</span>
       <div class="field">
         <label>Font size</label>
+        <div class="btn-row" style="margin-bottom:6px">
+          <button data-size="150">150px</button>
+          <button data-size="100">100px</button>
+          <button data-size="50">50px</button>
+        </div>
         <div class="row"><input type="range" id="fontSize" min="40" max="260" value="150"><input type="number" id="fontSizeN" min="10" max="600" value="150"></div>
       </div>
       <div class="field">
@@ -98,7 +162,25 @@ Project Wrap-up</textarea>
     </div>
 
     <div class="panel">
-      <span class="lbl">Padding \u2014 whole line</span>
+      <span class="lbl">Text box</span>
+      <p class="hint" style="margin:0 0 9px">Drag the handle to move, the edge handle to resize width — the title wraps to fit. Leave alone for auto-centred sizing.</p>
+      <div class="field">
+        <label>Left (px)</label>
+        <div class="row"><input type="number" id="frameX" placeholder="auto"></div>
+      </div>
+      <div class="field">
+        <label>Top (px)</label>
+        <div class="row"><input type="number" id="frameY" placeholder="auto"></div>
+      </div>
+      <div class="field">
+        <label>Width (px)</label>
+        <div class="row"><input type="number" id="frameW" placeholder="auto"></div>
+      </div>
+      <button id="frameReset">Reset to auto</button>
+    </div>
+
+    <div class="panel">
+      <span class="lbl">Padding — whole line</span>
       <p class="hint" style="margin:0 0 9px">Applies while every word in a line is highlighted.</p>
       <div class="field">
         <label>Left (% of font size)</label>
@@ -115,7 +197,7 @@ Project Wrap-up</textarea>
     </div>
 
     <div class="panel">
-      <span class="lbl">Padding \u2014 after clicking a word</span>
+      <span class="lbl">Padding — after clicking a word</span>
       <p class="hint" style="margin:0 0 9px">Applies once a line splits into a partial run, e.g. clicking one word off.</p>
       <div class="field">
         <label>Left, run starts the line (% of font size)</label>
@@ -138,24 +220,45 @@ Project Wrap-up</textarea>
     <div class="panel">
       <span class="lbl">Stylistic alternates</span>
       <div class="alt-list" id="alts"></div>
-      <p class="hint">Hubot doesn\u2019t publish which tag is which. These are its four documented alternates, in the order they\u2019re listed \u2014 if \u201cAlternate r\u201d misses, try the others.</p>
+      <p class="hint">Hubot doesn’t publish which tag is which. These are its four documented alternates, in the order they’re listed — if “Alternate r” misses, try the others.</p>
     </div>
 
     <div class="panel">
-      <span class="lbl">Colour</span>
+      <span class="lbl">Colour presets</span>
+      <div class="presets" id="presets"></div>
       <div class="field">
-        <label>Font</label>
+        <label>Font (custom)</label>
         <div class="swatch-row"><input type="color" id="fontColor" value="#332234"><span class="hex" id="fontColorHex">#332234</span></div>
       </div>
       <div class="field">
-        <label>Highlight</label>
+        <label>Highlight (custom)</label>
         <div class="swatch-row"><input type="color" id="padColor" value="#D0B6FF"><span class="hex" id="padColorHex">#D0B6FF</span></div>
       </div>
+      <button id="colorModeBtn" style="margin-top:10px">Colour individual words: off</button>
+      <p class="hint">When on, click a word in the preview to give it its own preset instead of toggling its highlight.</p>
+    </div>
+
+    <div class="panel">
+      <span class="lbl">Save &amp; load</span>
+      <div class="field">
+        <label>Saved layouts</label>
+        <select id="slotSelect"><option value="">— none saved —</option></select>
+      </div>
+      <div class="btn-row" style="margin-bottom:8px">
+        <button id="saveSlotBtn">Save</button>
+        <button id="loadSlotBtn">Load</button>
+        <button id="deleteSlotBtn">Delete</button>
+      </div>
+      <div class="btn-row">
+        <button id="exportJsonBtn">Export .json</button>
+        <button id="importJsonBtn">Import .json</button>
+      </div>
+      <input type="file" id="importJsonFile" accept="application/json" style="display:none">
     </div>
 
     <div class="panel">
       <button id="exportBtn">Export PNG</button>
-      <p class="hint">Writes 1920 &times; 1080 with a transparent background \u2014 the white you see behind the preview is not included.</p>
+      <p class="hint">Writes a transparent PNG cropped tight to the rendered content — the white you see behind the preview is not included.</p>
     </div>
   </aside>
 </div>
@@ -168,49 +271,318 @@ const ALTS=[
   {tag:'cv03', name:'Alternate r', on:true},
   {tag:'cv04', name:'Serifless uppercase I', on:false}
 ];
-const S={ lines:[], off:{} };   /* off keyed "lineIndex:wordIndex" */
+const PRESETS=[
+  {name:'First Light / Midnight', pad:'#F1EFFD', font:'#322234'},
+  {name:'Marigold / Soil',        pad:'#FF9C63', font:'#75153A'},
+  {name:'Harvest / Earth',        pad:'#FFE57B', font:'#5F4D00'},
+  {name:'Dusk / Dark Purple',     pad:'#D0B6FF', font:'#4D1061'},
+  {name:'Dusk / Midnight',        pad:'#D0B6FF', font:'#322234'}
+];
+const ZOOM_MIN=50, ZOOM_MAX=150, ZOOM_STEP=12.5;
+const GAP_ABOVE_SUBTITLE=0.14;   /* x font size, gap between subtitle and title */
+const DATE_GAP=30;               /* px, fixed — gap between title block and date */
+const MIN_FRAME_W=160;
+
+function defaultState(){
+  return {
+    text:'Black Maternal Futures\nProject Wrap-up',
+    subtitle:'', subColor:'#332234',
+    dateOn:false,
+    frame:{x:null,y:null,width:null},
+    fontSize:150, lineHeight:95, tracking:-4, capPct:67,
+    padStart:11.5, padROld:17, padVOld:17,
+    padStart2:11.5, padMid:4, padROther:9, padOther:17,
+    fontColor:'#332234', padColor:'#D0B6FF',
+    alts:ALTS.map(a=>a.on),
+    off:{}, wordColors:{},
+    zoom:100
+  };
+}
+let S=defaultState();
 
 const board=document.getElementById('board');
 const $=id=>document.getElementById(id);
 function flash(m){ const el=$('status'); el.textContent=m; clearTimeout(flash.t); flash.t=setTimeout(()=>el.textContent='',3200); }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+
+/* ---------- history (undo/redo) ---------- */
+let history=[], future=[], lastPushT=0;
+function snapshot(){ return JSON.parse(JSON.stringify(S)); }
+function pushHistory(){
+  history.push(snapshot());
+  if(history.length>100) history.shift();
+  future=[];
+  updateHistButtons();
+}
+function pushHistoryCoalesced(){
+  const now=Date.now();
+  if(now-lastPushT>400) pushHistory();
+  lastPushT=now;
+}
+function updateHistButtons(){
+  $('undoBtn').disabled=history.length===0;
+  $('redoBtn').disabled=future.length===0;
+}
+function undo(){
+  if(!history.length) return;
+  future.push(snapshot());
+  S=history.pop();
+  syncInputs(); render(); updateHistButtons();
+}
+function redo(){
+  if(!future.length) return;
+  history.push(snapshot());
+  S=future.pop();
+  syncInputs(); render(); updateHistButtons();
+}
+$('undoBtn').addEventListener('click',undo);
+$('redoBtn').addEventListener('click',redo);
+window.addEventListener('keydown',function(e){
+  const tag=document.activeElement&&document.activeElement.tagName;
+  if(tag==='INPUT'||tag==='TEXTAREA') return; /* let native field undo work */
+  const mod=e.metaKey||e.ctrlKey;
+  if(!mod||e.key.toLowerCase()!=='z') return;
+  e.preventDefault();
+  if(e.shiftKey) redo(); else undo();
+});
 
 /* ---------- controls ---------- */
-function linkPair(rangeId,numId){
+function linkPair(rangeId,numId,key){
   const r=$(rangeId), n=$(numId);
-  r.addEventListener('input',()=>{ n.value=r.value; render(); });
-  n.addEventListener('input',()=>{ r.value=n.value; render(); });
+  function apply(v){ S[key]=+v; syncInputs(); render(); }
+  r.addEventListener('input',()=>{ pushHistoryCoalesced(); apply(r.value); });
+  n.addEventListener('input',()=>{ pushHistoryCoalesced(); apply(n.value); });
 }
-linkPair('fontSize','fontSizeN');
-linkPair('lineHeight','lineHeightN');
-linkPair('tracking','trackingN');
-linkPair('capPct','capPctN');
-linkPair('padStart','padStartN');
-linkPair('padROld','padROldN');
-linkPair('padVOld','padVOldN');
-linkPair('padStart2','padStart2N');
-linkPair('padMid','padMidN');
-linkPair('padROther','padROtherN');
-linkPair('padOther','padOtherN');
+linkPair('fontSize','fontSizeN','fontSize');
+linkPair('lineHeight','lineHeightN','lineHeight');
+linkPair('tracking','trackingN','tracking');
+linkPair('capPct','capPctN','capPct');
+linkPair('padStart','padStartN','padStart');
+linkPair('padROld','padROldN','padROld');
+linkPair('padVOld','padVOldN','padVOld');
+linkPair('padStart2','padStart2N','padStart2');
+linkPair('padMid','padMidN','padMid');
+linkPair('padROther','padROtherN','padROther');
+linkPair('padOther','padOtherN','padOther');
 
-function colorField(inputId,hexId){
+document.querySelectorAll('[data-size]').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    pushHistory();
+    S.fontSize=+btn.dataset.size;
+    syncInputs(); render();
+  });
+});
+
+function colorField(inputId,hexId,key){
   const inp=$(inputId), hex=$(hexId);
-  inp.addEventListener('input',()=>{ hex.textContent=inp.value.toUpperCase(); render(); });
+  inp.addEventListener('input',()=>{
+    pushHistoryCoalesced();
+    S[key]=inp.value; hex.textContent=inp.value.toUpperCase();
+    render();
+  });
 }
-colorField('fontColor','fontColorHex');
-colorField('padColor','padColorHex');
+colorField('fontColor','fontColorHex','fontColor');
+colorField('padColor','padColorHex','padColor');
+colorField('subColor','subColorHex','subColor');
 
 $('alts').innerHTML=ALTS.map((a,i)=>
   '<label><input type="checkbox" data-alt="'+i+'" '+(a.on?'checked':'')+'> '+a.name+'</label>').join('');
 $('alts').addEventListener('change',function(e){
   const i=e.target.dataset.alt; if(i==null) return;
-  ALTS[i].on=e.target.checked; render();
+  pushHistory();
+  S.alts[i]=e.target.checked;
+  render();
 });
-$('text').addEventListener('input',function(){ S.lines=$('text').value.split('\n'); render(); });
-S.lines=$('text').value.split('\n');
+
+$('text').addEventListener('input',function(){ pushHistoryCoalesced(); S.text=$('text').value; render(); });
+$('subtitle').addEventListener('input',function(){ pushHistoryCoalesced(); S.subtitle=$('subtitle').value; render(); });
+
+$('dateToggle').addEventListener('click',function(){
+  pushHistory();
+  S.dateOn=!S.dateOn;
+  syncInputs(); render();
+});
+
+$('selectAllBtn').addEventListener('click',function(){
+  pushHistory();
+  allWords().forEach(w=>{ delete S.off[w.gidx]; });
+  render();
+});
+$('deselectAllBtn').addEventListener('click',function(){
+  pushHistory();
+  allWords().forEach(w=>{ S.off[w.gidx]=1; });
+  render();
+});
+
+/* ---------- colour presets ---------- */
+$('presets').innerHTML=PRESETS.map((p,i)=>
+  '<button type="button" class="preset-swatch" data-preset="'+i+'">'+
+    '<span class="bar" style="background:'+p.pad+'"></span>'+
+    '<span class="name">'+p.name+'</span>'+
+  '</button>').join('');
+$('presets').addEventListener('click',function(e){
+  const btn=e.target.closest('[data-preset]'); if(!btn) return;
+  const p=PRESETS[+btn.dataset.preset];
+  pushHistory();
+  S.fontColor=p.font; S.padColor=p.pad;
+  syncInputs(); render();
+});
+
+let colorMode=false;
+$('colorModeBtn').addEventListener('click',function(){
+  colorMode=!colorMode;
+  this.textContent='Colour individual words: '+(colorMode?'on':'off');
+  this.classList.toggle('active',colorMode);
+});
+
+function closeWordPopover(){
+  const p=document.getElementById('wordPopover');
+  if(p) p.remove();
+}
+document.addEventListener('click',function(e){
+  const p=document.getElementById('wordPopover');
+  if(p&&!p.contains(e.target)&&!e.target.closest('.hit-word')) closeWordPopover();
+});
+function openWordPopover(gidx,clientX,clientY){
+  closeWordPopover();
+  const el=document.createElement('div');
+  el.id='wordPopover'; el.className='popover';
+  el.style.left=Math.min(clientX,window.innerWidth-190)+'px';
+  el.style.top=Math.min(clientY,window.innerHeight-220)+'px';
+  el.innerHTML=PRESETS.map((p,i)=>
+    '<button type="button" data-p="'+i+'" style="display:flex;align-items:center;gap:7px;justify-content:flex-start">'+
+      '<span style="width:14px;height:14px;background:'+p.pad+';border:1px solid var(--rule);flex:none"></span>'+
+      '<span class="name">'+p.name+'</span></button>').join('')+
+    '<button type="button" data-p="clear">Clear override</button>';
+  document.body.appendChild(el);
+  el.addEventListener('click',function(e){
+    const b=e.target.closest('button'); if(!b) return;
+    pushHistory();
+    if(b.dataset.p==='clear') delete S.wordColors[gidx];
+    else{ const p=PRESETS[+b.dataset.p]; S.wordColors[gidx]={font:p.font,pad:p.pad}; }
+    closeWordPopover(); render();
+  });
+}
+
+/* ---------- zoom ---------- */
+function setZoom(z){
+  S.zoom=clamp(Math.round(z*8)/8,ZOOM_MIN,ZOOM_MAX);
+  board.style.width=S.zoom+'%';
+  $('zoomLbl').textContent=Math.round(S.zoom)+'%';
+}
+$('zoomIn').addEventListener('click',function(){ setZoom(S.zoom+ZOOM_STEP); });
+$('zoomOut').addEventListener('click',function(){ setZoom(S.zoom-ZOOM_STEP); });
+
+/* ---------- frame numeric fields ---------- */
+function frameField(id,key){
+  $(id).addEventListener('change',function(){
+    pushHistory();
+    const v=$(id).value;
+    ensureFrame();
+    S.frame[key]=v===''?null:+v;
+    render();
+  });
+}
+frameField('frameX','x'); frameField('frameY','y'); frameField('frameW','width');
+$('frameReset').addEventListener('click',function(){
+  pushHistory();
+  S.frame={x:null,y:null,width:null};
+  syncInputs(); render();
+});
+function ensureFrame(){
+  if(S.frame.x==null||S.frame.y==null||S.frame.width==null){
+    const a=lastAutoFrame||{x:0,y:0,width:400};
+    if(S.frame.x==null) S.frame.x=a.x;
+    if(S.frame.y==null) S.frame.y=a.y;
+    if(S.frame.width==null) S.frame.width=a.width;
+  }
+}
+
+/* ---------- save / load ---------- */
+function slots(){ try{ return JSON.parse(localStorage.getItem('hubotLayouts')||'{}'); }catch(e){ return {}; } }
+function saveSlots(o){ localStorage.setItem('hubotLayouts',JSON.stringify(o)); }
+function refreshSlotSelect(){
+  const sel=$('slotSelect'); const names=Object.keys(slots());
+  sel.innerHTML='<option value="">— none saved —</option>'+
+    names.map(n=>'<option value="'+n+'">'+n+'</option>').join('');
+}
+function loadObj(obj){
+  S=Object.assign(defaultState(),obj);
+  syncInputs(); render();
+}
+$('saveSlotBtn').addEventListener('click',function(){
+  const name=prompt('Save layout as:'); if(!name) return;
+  const s=slots(); s[name]=S; saveSlots(s); refreshSlotSelect();
+  $('slotSelect').value=name;
+  flash('Saved "'+name+'".');
+});
+$('loadSlotBtn').addEventListener('click',function(){
+  const name=$('slotSelect').value; if(!name) return;
+  const s=slots(); if(!s[name]) return;
+  pushHistory();
+  loadObj(s[name]);
+  flash('Loaded "'+name+'".');
+});
+$('deleteSlotBtn').addEventListener('click',function(){
+  const name=$('slotSelect').value; if(!name) return;
+  const s=slots(); delete s[name]; saveSlots(s); refreshSlotSelect();
+  flash('Deleted "'+name+'".');
+});
+$('exportJsonBtn').addEventListener('click',function(){
+  const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.download='hubot-layout.json'; a.href=URL.createObjectURL(blob); a.click();
+  URL.revokeObjectURL(a.href);
+});
+$('importJsonBtn').addEventListener('click',function(){ $('importJsonFile').click(); });
+$('importJsonFile').addEventListener('change',function(){
+  const f=this.files[0]; if(!f) return;
+  const reader=new FileReader();
+  reader.onload=function(){
+    try{
+      const obj=JSON.parse(reader.result);
+      pushHistory();
+      loadObj(obj);
+      flash('Layout imported.');
+    }catch(e){ flash('Import failed — not valid JSON.'); }
+    $('importJsonFile').value='';
+  };
+  reader.readAsText(f);
+});
+refreshSlotSelect();
+
+/* ---------- sync DOM inputs from state (load / undo / redo) ---------- */
+function syncInputs(){
+  $('text').value=S.text;
+  $('subtitle').value=S.subtitle;
+  $('subColor').value=S.subColor; $('subColorHex').textContent=S.subColor.toUpperCase();
+  $('dateToggle').textContent=S.dateOn?'On':'Off';
+  $('dateToggle').classList.toggle('active',S.dateOn);
+  $('fontSize').value=S.fontSize; $('fontSizeN').value=S.fontSize;
+  $('lineHeight').value=S.lineHeight; $('lineHeightN').value=S.lineHeight;
+  $('tracking').value=S.tracking; $('trackingN').value=S.tracking;
+  $('capPct').value=S.capPct; $('capPctN').value=S.capPct;
+  $('padStart').value=S.padStart; $('padStartN').value=S.padStart;
+  $('padROld').value=S.padROld; $('padROldN').value=S.padROld;
+  $('padVOld').value=S.padVOld; $('padVOldN').value=S.padVOld;
+  $('padStart2').value=S.padStart2; $('padStart2N').value=S.padStart2;
+  $('padMid').value=S.padMid; $('padMidN').value=S.padMid;
+  $('padROther').value=S.padROther; $('padROtherN').value=S.padROther;
+  $('padOther').value=S.padOther; $('padOtherN').value=S.padOther;
+  $('fontColor').value=S.fontColor; $('fontColorHex').textContent=S.fontColor.toUpperCase();
+  $('padColor').value=S.padColor; $('padColorHex').textContent=S.padColor.toUpperCase();
+  $('frameX').value=S.frame.x==null?'':S.frame.x;
+  $('frameY').value=S.frame.y==null?'':S.frame.y;
+  $('frameW').value=S.frame.width==null?'':S.frame.width;
+  document.querySelectorAll('#alts input[type=checkbox]').forEach(function(cb){
+    cb.checked=S.alts[+cb.dataset.alt];
+  });
+  setZoom(S.zoom);
+}
 
 /* ---------- type helpers ---------- */
 function featureSettings(){
-  const on=ALTS.filter(a=>a.on).map(a=>'"'+a.tag+'" 1');
+  const on=ALTS.filter((a,i)=>S.alts[i]).map(a=>'"'+a.tag+'" 1');
   return on.length?on.join(','):'normal';
 }
 function fontStyle(size,trackPct){
@@ -222,10 +594,6 @@ function fontStyle(size,trackPct){
    the variable axes and any alternates are accounted for. The band runs cap
    height to baseline; the padding on every side is the descender depth, which
    puts the block's bottom edge exactly on the descenders. */
-/* Always measured fresh against whatever font instance is actually loaded right
-   now \u2014 a cached value taken before Hubot Sans finished downloading would
-   silently keep using the browser's fallback-font metrics forever, since the
-   cache key never changes. */
 function metrics(size,trackPct){
   function box(str){
     const t=document.createElementNS(NS,'text');
@@ -243,130 +611,303 @@ function metrics(size,trackPct){
     desc: Math.max(0,(db.y+db.height))||size*0.16
   };
 }
-/* ---------- render ---------- */
-/* Each word is its own tspan so it can be measured and clicked independently.
-   Whitespace between words is preserved as plain text so natural spacing and
-   letter-spacing both still apply correctly across word boundaries. */
-function buildLine(text,style,fill){
+function textWidth(str,style){
+  if(!str) return 0;
   const t=document.createElementNS(NS,'text');
   t.setAttribute('x',0); t.setAttribute('y',0);
-  t.setAttribute('style',style); t.setAttribute('fill',fill);
-  const tspans=[];
-  const re=/(\s+)|(\S+)/g; let m;
-  while((m=re.exec(text))){
-    if(m[1]) t.appendChild(document.createTextNode(m[1]));
-    else{
-      const ts=document.createElementNS(NS,'tspan');
-      ts.textContent=m[2];
-      t.appendChild(ts); tspans.push(ts);
-    }
-  }
-  return {t:t, tspans:tspans};
+  t.setAttribute('style',style);
+  t.appendChild(document.createTextNode(str));
+  board.appendChild(t);
+  const w=t.getBBox().width;
+  board.removeChild(t);
+  return w;
 }
 
+/* ---------- word model ---------- */
+/* Every word in the title gets a stable global index (gidx), independent of
+   how it happens to wrap into visual lines — so resizing the text box never
+   loses or reshuffles a word's highlight state or colour override. */
+function tokenize(text){
+  let gidx=0;
+  return text.split('\n').map(function(line){
+    const trimmed=line.trim();
+    if(!trimmed) return [];
+    return trimmed.split(/\s+/).map(function(w){ return {text:w, gidx:gidx++}; });
+  });
+}
+let lastWords=[];
+function allWords(){ return lastWords; }
+
+function wrapParagraph(words,style,frameWidth){
+  if(!words.length) return [[]];
+  if(frameWidth==null) return [words];
+  const lines=[]; let current=[];
+  words.forEach(function(w){
+    const trial=current.concat([w]);
+    if(current.length && textWidth(trial.map(x=>x.text).join(' '),style)>frameWidth){
+      lines.push(current); current=[w];
+    } else current=trial;
+  });
+  if(current.length) lines.push(current);
+  return lines;
+}
+
+/* Each word is its own tspan so it can be measured and clicked independently.
+   Words are joined with a single literal space text node so natural spacing
+   and letter-spacing both still apply correctly across word boundaries. */
+function buildLine(words,style,defaultFill,wordColorFn){
+  const t=document.createElementNS(NS,'text');
+  t.setAttribute('x',0); t.setAttribute('y',0);
+  t.setAttribute('style',style); t.setAttribute('fill',defaultFill);
+  const tspans=[];
+  words.forEach(function(w,idx){
+    if(idx>0) t.appendChild(document.createTextNode(' '));
+    const ts=document.createElementNS(NS,'tspan');
+    ts.textContent=w.text;
+    const fc=wordColorFn(w.gidx);
+    if(fc) ts.setAttribute('fill',fc);
+    t.appendChild(ts);
+    tspans.push({el:ts,gidx:w.gidx});
+  });
+  return {t:t,tspans:tspans};
+}
+
+/* ---------- render ---------- */
+let lastAutoFrame=null;
+
 function render(){
-  const size=+$('fontSizeN').value;
-  const pitch=size*(+$('lineHeightN').value/100);
-  const trackPct=+$('trackingN').value;
-  const fontColor=$('fontColor').value, padColor=$('padColor').value;
+  const size=S.fontSize;
+  const pitch=size*(S.lineHeight/100);
+  const trackPct=S.tracking;
+  const fontColor=S.fontColor, padColor=S.padColor;
   const m=metrics(size,trackPct);
-  const cap=m.cap*(+$('capPctN').value/100);
-
-  /* Two padding schemes. An untouched, fully-highlighted line uses the "whole
-     line" values. The moment a word is clicked off, that line's run(s) switch
-     to the "after clicking" values \u2014 left still depends on whether the run
-     starts at the line's first word, right/top/bottom become one shared value. */
-  const padLeftWhole=size*(+$('padStartN').value/100);
-  const padRightWhole=size*(+$('padROldN').value/100);
-  const padVWhole=size*(+$('padVOldN').value/100);
-  const padLeftStart=size*(+$('padStart2N').value/100);
-  const padLeftMid=size*(+$('padMidN').value/100);
-  const padROther=size*(+$('padROtherN').value/100);
-  const padOther=size*(+$('padOtherN').value/100);
-
+  const cap=m.cap*(S.capPct/100);
   const style=fontStyle(size,trackPct);
-  /* overall line spacing stays stable regardless of click state, using the
-     whole-line vertical padding as the reference so toggling a word never
-     shifts other lines around */
+
+  const padLeftWhole=size*(S.padStart/100);
+  const padRightWhole=size*(S.padROld/100);
+  const padVWhole=size*(S.padVOld/100);
+  const padLeftStart=size*(S.padStart2/100);
+  const padLeftMid=size*(S.padMid/100);
+  const padROther=size*(S.padROther/100);
+  const padOther=size*(S.padOther/100);
   const refBlockH=cap+padVWhole*2;
 
-  board.innerHTML='';
-  const rectG=document.createElementNS(NS,'g');   /* behind: highlight blocks */
-  const textG=document.createElementNS(NS,'g');   /* middle: the letters */
-  const hitG=document.createElementNS(NS,'g');    /* front: catches the clicks */
-  board.appendChild(rectG); board.appendChild(textG); board.appendChild(hitG);
+  function wordFontColor(gidx){ const o=S.wordColors[gidx]; return o?o.font:null; }
+  function wordPadColor(gidx){ const o=S.wordColors[gidx]; return o?o.pad:padColor; }
 
-  const lines=S.lines;
-  const built=lines.map(function(line){
-    const b=buildLine(line,style,fontColor);
+  board.innerHTML='';
+  const contentG=document.createElementNS(NS,'g'); contentG.setAttribute('class','ui-content');
+  const rectG=document.createElementNS(NS,'g');
+  const textG=document.createElementNS(NS,'g');
+  const subG=document.createElementNS(NS,'g');
+  const dateG=document.createElementNS(NS,'g');
+  const hitG=document.createElementNS(NS,'g'); hitG.setAttribute('class','ui-only');
+  const frameG=document.createElementNS(NS,'g'); frameG.setAttribute('class','ui-only');
+  contentG.appendChild(rectG); contentG.appendChild(subG); contentG.appendChild(textG); contentG.appendChild(dateG);
+  board.appendChild(contentG); board.appendChild(hitG); board.appendChild(frameG);
+
+  /* ---- title: tokenize, wrap, measure ---- */
+  const paragraphs=tokenize(S.text);
+  const frameWidth=S.frame.width;
+  const visualLines=[];
+  paragraphs.forEach(function(p){ wrapParagraph(p,style,frameWidth).forEach(l=>visualLines.push(l)); });
+
+  const built=visualLines.map(function(words){
+    const b=buildLine(words,style,fontColor,wordFontColor);
     textG.appendChild(b.t);
     return b;
   });
-
-  /* Everything is measured once, at x=0, before any positioning happens.
-     Shifting a <text> element's x by a known delta moves it \u2014 and every
-     child tspan inside it \u2014 by that exact same delta, so each word's final
-     position can be derived by arithmetic rather than measured a second time
-     after the shift. */
   const lineBox=built.map(function(b,i){
-    if(!lines[i].trim()) return {x:0,w:0};
+    if(!visualLines[i].length) return {x:0,w:0};
     const bb=b.t.getBBox();
     return {x:bb.x, w:bb.width};
   });
-  const wordBox=built.map(b=>b.tspans.map(ts=>ts.getBBox()));
+  const wordBox=built.map(b=>b.tspans.map(ts=>({gidx:ts.gidx, bb:ts.el.getBBox()})));
   const maxW=Math.max(1,...lineBox.map(o=>o.w));
-  const targetLeft=(1920-maxW)/2;
-  const totalH=(lines.length-1)*pitch+refBlockH;
-  const firstBaseline=(1080-totalH)/2+padVWhole+cap;
+  const titleH=(visualLines.length-1)*pitch+refBlockH;
 
-  lines.forEach(function(line,i){
+  /* ---- subtitle: measured, own single line for now (wraps as one block if it has line breaks) ---- */
+  const subSize=Math.max(10,size*0.32);
+  const subStyle=fontStyle(subSize,trackPct);
+  const subLines=S.subtitle.split('\n').filter(l=>l.trim()!=='' ).length?S.subtitle.split('\n'):[];
+  const subM=subLines.length?metrics(subSize,trackPct):null;
+  const subPitch=subSize*(S.lineHeight/100);
+  const subH=subLines.length?((subLines.length-1)*subPitch+subM.cap+subM.desc):0;
+  const subGapPx=subLines.length?size*GAP_ABOVE_SUBTITLE:0;
+  const subWidths=subLines.map(l=>textWidth(l,subStyle));
+  const subMaxW=subWidths.length?Math.max(...subWidths):0;
+
+  /* ---- date ---- */
+  const dateStr=new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  const dateSize=Math.max(10,size*0.26);
+  const dateStyle=fontStyle(dateSize,trackPct);
+  const dateW=S.dateOn?textWidth(dateStr,dateStyle):0;
+  const dateM=S.dateOn?metrics(dateSize,trackPct):null;
+  const dateH=S.dateOn?(dateM.cap+dateM.desc):0;
+  const dateGapPx=S.dateOn?DATE_GAP:0;
+
+  /* ---- layout: auto-center whole assembly, or use the user's frame ---- */
+  const totalW=Math.max(maxW,subMaxW,dateW);
+  const totalH=subH+subGapPx+titleH+dateGapPx+dateH;
+  const autoX=(1920-Math.max(maxW,subMaxW))/2;
+  const autoY=(1080-totalH)/2+subH+subGapPx;
+  lastAutoFrame={x:autoX,y:autoY,width:Math.max(MIN_FRAME_W,maxW)};
+
+  const frameX=S.frame.x==null?autoX:S.frame.x;
+  const frameY=S.frame.y==null?autoY:S.frame.y;
+
+  const firstBaseline=frameY+cap;
+  const targetLeft=frameX;
+
+  const words=[]; /* flat, for allWords() */
+  const lineRuns=[];
+  visualLines.forEach(function(line,i){
     const baseline=firstBaseline+i*pitch;
     const delta=targetLeft-lineBox[i].x;
     built[i].t.setAttribute('x',delta);
     built[i].t.setAttribute('y',baseline);
-    if(!line.trim()) return;
+    if(!line.length) return;
 
-    const words=wordBox[i].map(bb=>({left:bb.x+delta, right:bb.x+bb.width+delta}));
+    const lw=wordBox[i].map(o=>({gidx:o.gidx,left:o.bb.x+delta,right:o.bb.x+o.bb.width+delta}));
+    lw.forEach(w=>words.push(w));
 
     const runs=[]; let cur=null;
-    words.forEach(function(w,j){
-      if(!S.off[i+':'+j]){ if(cur) cur.b=j; else cur={a:j,b:j}; }
+    lw.forEach(function(w,j){
+      if(!S.off[w.gidx]){ if(cur) cur.b=j; else cur={a:j,b:j}; }
       else if(cur){ runs.push(cur); cur=null; }
     });
     if(cur) runs.push(cur);
 
     runs.forEach(function(r){
       const isStart=r.a===0;
-      const isWhole=r.a===0&&r.b===words.length-1;
+      const isWhole=r.a===0&&r.b===lw.length-1;
       const leftPad=isWhole?padLeftWhole:(isStart?padLeftStart:padLeftMid);
       const rightPad=isWhole?padRightWhole:padROther;
       const vPad=isWhole?padVWhole:padOther;
       const top=baseline-cap-vPad;
-      const x0=words[r.a].left-leftPad;
-      const x1=words[r.b].right+rightPad;
-      const rect=document.createElementNS(NS,'rect');
-      rect.setAttribute('x',x0);
-      rect.setAttribute('y',top);
-      rect.setAttribute('width',x1-x0);
-      rect.setAttribute('height',cap+vPad*2);
-      rect.setAttribute('fill',padColor);
-      rectG.appendChild(rect);
+      const h=cap+vPad*2;
+
+      let subA=r.a, subColor=wordPadColor(lw[r.a].gidx);
+      for(let j=r.a+1;j<=r.b+1;j++){
+        const c=j<=r.b?wordPadColor(lw[j].gidx):null;
+        if(j>r.b||c!==subColor){
+          const subB=j-1;
+          const x0=(subA===r.a)?(lw[subA].left-leftPad):((lw[subA-1].right+lw[subA].left)/2);
+          const x1=(subB===r.b)?(lw[subB].right+rightPad):((lw[subB].right+lw[subB+1].left)/2);
+          const rect=document.createElementNS(NS,'rect');
+          rect.setAttribute('x',x0); rect.setAttribute('y',top);
+          rect.setAttribute('width',Math.max(0,x1-x0)); rect.setAttribute('height',h);
+          rect.setAttribute('fill',subColor);
+          rectG.appendChild(rect);
+          subA=j; subColor=c;
+        }
+      }
     });
 
     const hitTop=baseline-cap-padVWhole;
-    words.forEach(function(w,j){
+    lw.forEach(function(w){
       const hit=document.createElementNS(NS,'rect');
       hit.setAttribute('x',w.left); hit.setAttribute('y',hitTop);
       hit.setAttribute('width',w.right-w.left); hit.setAttribute('height',refBlockH);
       hit.setAttribute('fill','transparent');
+      hit.setAttribute('class','hit-word');
       hit.style.cursor='pointer';
-      hit.addEventListener('click',function(){
-        const k=i+':'+j;
-        if(S.off[k]) delete S.off[k]; else S.off[k]=1;
+      hit.addEventListener('click',function(ev){
+        if(colorMode){ openWordPopover(w.gidx,ev.clientX,ev.clientY); return; }
+        pushHistory();
+        if(S.off[w.gidx]) delete S.off[w.gidx]; else S.off[w.gidx]=1;
         render();
       });
       hitG.appendChild(hit);
     });
+  });
+  lastWords=words;
+
+  /* content right edge, used to right-align the date like the reference layout */
+  const contentRight=words.length?Math.max(...words.map(w=>w.right)):targetLeft+maxW;
+  const titleBottom=firstBaseline+(visualLines.length-1)*pitch+padVWhole;
+
+  /* ---- draw subtitle ---- */
+  if(subLines.length){
+    let sy=frameY-subGapPx-subM.desc;
+    for(let i=subLines.length-1;i>=0;i--){
+      const t=document.createElementNS(NS,'text');
+      t.setAttribute('style',subStyle); t.setAttribute('fill',S.subColor);
+      t.setAttribute('x',targetLeft); t.setAttribute('y',sy);
+      t.textContent=subLines[i];
+      subG.appendChild(t);
+      sy-=subPitch;
+    }
+  }
+
+  /* ---- draw date ---- */
+  if(S.dateOn){
+    const t=document.createElementNS(NS,'text');
+    t.setAttribute('style',dateStyle); t.setAttribute('fill',padColor);
+    t.setAttribute('text-anchor','end');
+    t.setAttribute('x',contentRight);
+    t.setAttribute('y',titleBottom+dateGapPx+dateM.cap);
+    t.textContent=dateStr;
+    dateG.appendChild(t);
+  }
+
+  /* ---- frame drag handles ---- */
+  const fx=S.frame.x==null?autoX:S.frame.x;
+  const fy=S.frame.y==null?autoY:S.frame.y;
+  const fw=S.frame.width==null?Math.max(MIN_FRAME_W,maxW):S.frame.width;
+  const outline=document.createElementNS(NS,'rect');
+  outline.setAttribute('x',fx); outline.setAttribute('y',fy);
+  outline.setAttribute('width',fw); outline.setAttribute('height',Math.max(titleH,refBlockH));
+  outline.setAttribute('fill','none'); outline.setAttribute('stroke','#2F6F62');
+  outline.setAttribute('stroke-width',2); outline.setAttribute('stroke-dasharray','8,6');
+  outline.setAttribute('opacity',0.55);
+  frameG.appendChild(outline);
+
+  const moveH=document.createElementNS(NS,'rect');
+  moveH.setAttribute('x',fx-14); moveH.setAttribute('y',fy-14);
+  moveH.setAttribute('width',22); moveH.setAttribute('height',22);
+  moveH.setAttribute('fill','#2F6F62'); moveH.setAttribute('class','frame-handle');
+  frameG.appendChild(moveH);
+
+  const resizeH=document.createElementNS(NS,'rect');
+  resizeH.setAttribute('x',fx+fw-11); resizeH.setAttribute('y',fy+Math.max(titleH,refBlockH)/2-14);
+  resizeH.setAttribute('width',22); resizeH.setAttribute('height',28);
+  resizeH.setAttribute('fill','#2F6F62'); resizeH.setAttribute('class','frame-handle resize');
+  frameG.appendChild(resizeH);
+
+  attachDrag(moveH,'move'); attachDrag(resizeH,'resize');
+}
+
+/* ---------- frame dragging ---------- */
+function svgPoint(evt){
+  const pt=board.createSVGPoint();
+  pt.x=evt.clientX; pt.y=evt.clientY;
+  return pt.matrixTransform(board.getScreenCTM().inverse());
+}
+function attachDrag(el,mode){
+  el.addEventListener('pointerdown',function(e){
+    e.preventDefault(); e.stopPropagation();
+    ensureFrame();
+    pushHistory();
+    const start=svgPoint(e);
+    const startFrame={x:S.frame.x,y:S.frame.y,width:S.frame.width};
+    function onMove(ev){
+      const p=svgPoint(ev);
+      const dx=p.x-start.x, dy=p.y-start.y;
+      if(mode==='move'){
+        S.frame.x=startFrame.x+dx; S.frame.y=startFrame.y+dy;
+      }else{
+        S.frame.width=Math.max(MIN_FRAME_W,startFrame.width+dx);
+      }
+      syncInputs(); render();
+    }
+    function onUp(){
+      window.removeEventListener('pointermove',onMove);
+      window.removeEventListener('pointerup',onUp);
+    }
+    window.addEventListener('pointermove',onMove);
+    window.addEventListener('pointerup',onUp);
   });
 }
 
@@ -374,13 +915,21 @@ function render(){
 /* An SVG loaded into an Image can't reach the document's own stylesheets, so
    the @font-face declaration has to be duplicated inside the SVG itself. Since
    the font is already embedded as base64 in the page (#fontFace), this is just
-   copying that text \u2014 no network fetch, works fully offline. */
+   copying that text — no network fetch, works fully offline. UI-only layers
+   (drag handles, click hit-boxes) are stripped before export, and the crop is
+   taken from the content group's own bounding box so the PNG is pixel-tight. */
 $('exportBtn').addEventListener('click',function(){
-  const btn=this; btn.disabled=true; flash('Preparing export\u2026');
+  const btn=this; btn.disabled=true; flash('Preparing export…');
   try{
+    const contentEl=board.querySelector('.ui-content');
+    const bbox=contentEl.getBBox();
+    if(bbox.width<1||bbox.height<1){ throw new Error('nothing to export'); }
+
     const svg=board.cloneNode(true);
+    svg.querySelectorAll('.ui-only').forEach(n=>n.remove());
     svg.setAttribute('xmlns',NS);
-    svg.setAttribute('width','1920'); svg.setAttribute('height','1080');
+    svg.setAttribute('viewBox',bbox.x+' '+bbox.y+' '+bbox.width+' '+bbox.height);
+    svg.setAttribute('width',bbox.width); svg.setAttribute('height',bbox.height);
     const st=document.createElementNS(NS,'style');
     st.textContent=$('fontFace').textContent;
     svg.insertBefore(st,svg.firstChild);
@@ -388,18 +937,18 @@ $('exportBtn').addEventListener('click',function(){
     const img=new Image();
     img.onload=function(){
       const cv=document.createElement('canvas');
-      cv.width=1920; cv.height=1080;                 /* left transparent on purpose */
-      cv.getContext('2d').drawImage(img,0,0,1920,1080);
+      cv.width=Math.ceil(bbox.width); cv.height=Math.ceil(bbox.height); /* left transparent on purpose */
+      cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
       const a=document.createElement('a');
       a.download='hubot-highlight.png';
       a.href=cv.toDataURL('image/png'); a.click();
-      btn.disabled=false; flash('PNG downloaded, 1920 \u00d7 1080, transparent.');
+      btn.disabled=false; flash('PNG downloaded, '+cv.width+' × '+cv.height+', transparent.');
     };
     img.onerror=function(){ btn.disabled=false; flash('Export failed while rasterising.'); };
     img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(xml);
   }catch(e){
     btn.disabled=false;
-    flash('Export failed \u2014 '+e.message);
+    flash('Export failed — '+e.message);
   }
 });
 
@@ -412,6 +961,8 @@ window.addEventListener('resize',function(){ measureHeader(); });
 if(document.fonts&&document.fonts.ready){
   document.fonts.ready.then(function(){ measureHeader(); render(); });
 }
+syncInputs();
+updateHistButtons();
 measureHeader(); render();
 </script>
 </body>
