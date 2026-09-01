@@ -111,7 +111,11 @@
       <span class="lbl">Subtitle</span>
       <textarea id="subtitle" spellcheck="false" placeholder="Optional line above the title"></textarea>
       <div class="field" style="margin-top:9px">
-        <label>Subtitle colour</label>
+        <label>Colour preset</label>
+        <select id="subPreset"></select>
+      </div>
+      <div class="field">
+        <label>Colour (custom)</label>
         <div class="swatch-row"><input type="color" id="subColor" value="#332234"><span class="hex" id="subColorHex">#332234</span></div>
       </div>
       <p class="hint">Sits above the title. Plain text — it can't be highlighted or clicked.</p>
@@ -125,7 +129,7 @@ Project Wrap-up</textarea>
         <button id="selectAllBtn">Select all</button>
         <button id="deselectAllBtn">Deselect all</button>
       </div>
-      <p class="hint">Press Enter for a new line. Click any word in the preview to drop its highlight; click again to bring it back.</p>
+      <p class="hint">Press Enter for a new line. Left-click any word in the preview to drop its highlight; click again to bring it back. Right-click a word to give it its own colour combo.</p>
     </div>
 
     <div class="panel">
@@ -133,7 +137,27 @@ Project Wrap-up</textarea>
         <span class="lbl">Date</span>
         <button id="dateToggle" style="width:auto;padding:5px 9px">Off</button>
       </div>
-      <p class="hint">Prints as "Month Year" (today), right-aligned 30px below the title block. Uses the current highlight colour.</p>
+      <div class="field">
+        <label>Month / year</label>
+        <div class="row">
+          <select id="dateMonth" style="flex:1"></select>
+          <select id="dateYear" style="flex:1"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Colour preset</label>
+        <select id="datePreset"></select>
+      </div>
+      <div class="field">
+        <label>Font (custom)</label>
+        <div class="swatch-row"><input type="color" id="dateColor" value="#332234"><span class="hex" id="dateColorHex">#332234</span></div>
+      </div>
+      <div class="field">
+        <label>Highlight (custom)</label>
+        <div class="swatch-row"><input type="color" id="datePadColor" value="#D0B6FF"><span class="hex" id="datePadColorHex">#D0B6FF</span></div>
+      </div>
+      <button id="dateSwapBtn">&#8646; Swap font / highlight</button>
+      <p class="hint">Prints as "Month Year", right-aligned and touching the last line of the title, with its own highlight.</p>
     </div>
 
     <div class="panel">
@@ -234,8 +258,8 @@ Project Wrap-up</textarea>
         <label>Highlight (custom)</label>
         <div class="swatch-row"><input type="color" id="padColor" value="#D0B6FF"><span class="hex" id="padColorHex">#D0B6FF</span></div>
       </div>
-      <button id="colorModeBtn" style="margin-top:10px">Colour individual words: off</button>
-      <p class="hint">When on, click a word in the preview to give it its own preset instead of toggling its highlight.</p>
+      <button id="colorSwapBtn" style="margin-top:2px">&#8646; Swap font / highlight</button>
+      <p class="hint">Left-click a word to toggle its highlight. Right-click a word to give it its own colour combo.</p>
     </div>
 
     <div class="panel">
@@ -257,8 +281,15 @@ Project Wrap-up</textarea>
     </div>
 
     <div class="panel">
+      <span class="lbl">Export resolution</span>
+      <div class="btn-row" style="margin-bottom:10px">
+        <button data-scale="1">1&times;</button>
+        <button data-scale="2">2&times;</button>
+        <button data-scale="3">3&times;</button>
+        <button data-scale="4">4&times;</button>
+      </div>
       <button id="exportBtn">Export PNG</button>
-      <p class="hint">Writes a transparent PNG cropped tight to the rendered content — the white you see behind the preview is not included.</p>
+      <p class="hint">Writes a transparent PNG cropped tight to the rendered content, rasterised at the resolution above for crisp edges — the white you see behind the preview is not included.</p>
     </div>
   </aside>
 </div>
@@ -280,14 +311,18 @@ const PRESETS=[
 ];
 const ZOOM_MIN=50, ZOOM_MAX=150, ZOOM_STEP=12.5;
 const GAP_ABOVE_SUBTITLE=0.14;   /* x font size, gap between subtitle and title */
-const DATE_GAP=30;               /* px, fixed — gap between title block and date */
+const DATE_GAP=0;                /* px — date highlight sits flush against the title block's last line */
 const MIN_FRAME_W=160;
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const YEAR_MIN=2020, YEAR_MAX=2040;
 
 function defaultState(){
+  const now=new Date();
   return {
     text:'Black Maternal Futures\nProject Wrap-up',
     subtitle:'', subColor:'#332234',
-    dateOn:false,
+    dateOn:false, dateColor:'#332234', datePadColor:'#D0B6FF',
+    dateMonth:now.getMonth()+1, dateYear:clamp(now.getFullYear(),YEAR_MIN,YEAR_MAX),
     frame:{x:null,y:null,width:null},
     fontSize:150, lineHeight:95, tracking:-4, capPct:67,
     padStart:11.5, padROld:17, padVOld:17,
@@ -295,10 +330,17 @@ function defaultState(){
     fontColor:'#332234', padColor:'#D0B6FF',
     alts:ALTS.map(a=>a.on),
     off:{}, wordColors:{},
-    zoom:100
+    zoom:100, exportScale:3
   };
 }
 let S=defaultState();
+let dirty=false;
+/* Warn on refresh/close only once something has actually changed since the
+   last save/export/load — not on every visit. */
+window.addEventListener('beforeunload',function(e){
+  if(!dirty) return;
+  e.preventDefault(); e.returnValue='';
+});
 
 const board=document.getElementById('board');
 const $=id=>document.getElementById(id);
@@ -309,6 +351,7 @@ function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 let history=[], future=[], lastPushT=0;
 function snapshot(){ return JSON.parse(JSON.stringify(S)); }
 function pushHistory(){
+  dirty=true;
   history.push(snapshot());
   if(history.length>100) history.shift();
   future=[];
@@ -373,17 +416,57 @@ document.querySelectorAll('[data-size]').forEach(function(btn){
   });
 });
 
+document.querySelectorAll('[data-scale]').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    S.exportScale=+btn.dataset.scale;
+    syncInputs();
+  });
+});
+
 function colorField(inputId,hexId,key){
-  const inp=$(inputId), hex=$(hexId);
+  const inp=$(inputId);
   inp.addEventListener('input',()=>{
     pushHistoryCoalesced();
-    S[key]=inp.value; hex.textContent=inp.value.toUpperCase();
-    render();
+    S[key]=inp.value;
+    /* a manual edit may no longer match whichever preset the dropdown shows,
+       so resync it (and the hex label) rather than just the two directly */
+    syncInputs(); render();
   });
 }
 colorField('fontColor','fontColorHex','fontColor');
 colorField('padColor','padColorHex','padColor');
 colorField('subColor','subColorHex','subColor');
+colorField('dateColor','dateColorHex','dateColor');
+colorField('datePadColor','datePadColorHex','datePadColor');
+
+$('colorSwapBtn').addEventListener('click',function(){
+  pushHistory();
+  const t=S.fontColor; S.fontColor=S.padColor; S.padColor=t;
+  syncInputs(); render();
+});
+$('dateSwapBtn').addEventListener('click',function(){
+  pushHistory();
+  const t=S.dateColor; S.dateColor=S.datePadColor; S.datePadColor=t;
+  syncInputs(); render();
+});
+
+const PRESET_OPTIONS='<option value="">Custom</option>'+
+  PRESETS.map((p,i)=>'<option value="'+i+'">'+p.name+'</option>').join('');
+$('subPreset').innerHTML=PRESET_OPTIONS;
+$('datePreset').innerHTML=PRESET_OPTIONS;
+$('subPreset').addEventListener('change',function(){
+  if(this.value==='') return;
+  pushHistory();
+  S.subColor=PRESETS[+this.value].font;
+  syncInputs(); render();
+});
+$('datePreset').addEventListener('change',function(){
+  if(this.value==='') return;
+  pushHistory();
+  const p=PRESETS[+this.value];
+  S.dateColor=p.font; S.datePadColor=p.pad;
+  syncInputs(); render();
+});
 
 $('alts').innerHTML=ALTS.map((a,i)=>
   '<label><input type="checkbox" data-alt="'+i+'" '+(a.on?'checked':'')+'> '+a.name+'</label>').join('');
@@ -403,6 +486,15 @@ $('dateToggle').addEventListener('click',function(){
   syncInputs(); render();
 });
 
+$('dateMonth').innerHTML=MONTHS.map((m,i)=>'<option value="'+(i+1)+'">'+m+'</option>').join('');
+(function(){
+  let opts='';
+  for(let y=YEAR_MIN;y<=YEAR_MAX;y++) opts+='<option value="'+y+'">'+y+'</option>';
+  $('dateYear').innerHTML=opts;
+})();
+$('dateMonth').addEventListener('change',function(){ pushHistory(); S.dateMonth=+this.value; render(); });
+$('dateYear').addEventListener('change',function(){ pushHistory(); S.dateYear=+this.value; render(); });
+
 $('selectAllBtn').addEventListener('click',function(){
   pushHistory();
   allWords().forEach(w=>{ delete S.off[w.gidx]; });
@@ -411,6 +503,7 @@ $('selectAllBtn').addEventListener('click',function(){
 $('deselectAllBtn').addEventListener('click',function(){
   pushHistory();
   allWords().forEach(w=>{ S.off[w.gidx]=1; });
+  S.wordColors={};
   render();
 });
 
@@ -428,12 +521,6 @@ $('presets').addEventListener('click',function(e){
   syncInputs(); render();
 });
 
-let colorMode=false;
-$('colorModeBtn').addEventListener('click',function(){
-  colorMode=!colorMode;
-  this.textContent='Colour individual words: '+(colorMode?'on':'off');
-  this.classList.toggle('active',colorMode);
-});
 
 function closeWordPopover(){
   const p=document.getElementById('wordPopover');
@@ -453,12 +540,17 @@ function openWordPopover(gidx,clientX,clientY){
     '<button type="button" data-p="'+i+'" style="display:flex;align-items:center;gap:7px;justify-content:flex-start">'+
       '<span style="width:14px;height:14px;background:'+p.pad+';border:1px solid var(--rule);flex:none"></span>'+
       '<span class="name">'+p.name+'</span></button>').join('')+
+    '<button type="button" data-p="swap">&#8646; Swap this word\'s colours</button>'+
     '<button type="button" data-p="clear">Clear override</button>';
   document.body.appendChild(el);
   el.addEventListener('click',function(e){
     const b=e.target.closest('button'); if(!b) return;
     pushHistory();
     if(b.dataset.p==='clear') delete S.wordColors[gidx];
+    else if(b.dataset.p==='swap'){
+      const cur=S.wordColors[gidx]||{font:S.fontColor,pad:S.padColor};
+      S.wordColors[gidx]={font:cur.pad,pad:cur.font};
+    }
     else{ const p=PRESETS[+b.dataset.p]; S.wordColors[gidx]={font:p.font,pad:p.pad}; }
     closeWordPopover(); render();
   });
@@ -469,6 +561,9 @@ function setZoom(z){
   S.zoom=clamp(Math.round(z*8)/8,ZOOM_MIN,ZOOM_MAX);
   board.style.width=S.zoom+'%';
   $('zoomLbl').textContent=Math.round(S.zoom)+'%';
+  /* frame-handle sizing is scale-aware (see render()) — re-render so handles
+     stay a constant, grabbable screen size right after the zoom changes */
+  render();
 }
 $('zoomIn').addEventListener('click',function(){ setZoom(S.zoom+ZOOM_STEP); });
 $('zoomOut').addEventListener('click',function(){ setZoom(S.zoom-ZOOM_STEP); });
@@ -508,12 +603,14 @@ function refreshSlotSelect(){
 }
 function loadObj(obj){
   S=Object.assign(defaultState(),obj);
+  dirty=false;
   syncInputs(); render();
 }
 $('saveSlotBtn').addEventListener('click',function(){
   const name=prompt('Save layout as:'); if(!name) return;
   const s=slots(); s[name]=S; saveSlots(s); refreshSlotSelect();
   $('slotSelect').value=name;
+  dirty=false;
   flash('Saved "'+name+'".');
 });
 $('loadSlotBtn').addEventListener('click',function(){
@@ -533,6 +630,7 @@ $('exportJsonBtn').addEventListener('click',function(){
   const a=document.createElement('a');
   a.download='hubot-layout.json'; a.href=URL.createObjectURL(blob); a.click();
   URL.revokeObjectURL(a.href);
+  dirty=false;
 });
 $('importJsonBtn').addEventListener('click',function(){ $('importJsonFile').click(); });
 $('importJsonFile').addEventListener('change',function(){
@@ -552,12 +650,25 @@ $('importJsonFile').addEventListener('change',function(){
 refreshSlotSelect();
 
 /* ---------- sync DOM inputs from state (load / undo / redo) ---------- */
+function matchPresetIndex(font,pad){
+  for(let i=0;i<PRESETS.length;i++){
+    if(PRESETS[i].font.toLowerCase()===font.toLowerCase()&&(pad==null||PRESETS[i].pad.toLowerCase()===pad.toLowerCase())) return i;
+  }
+  return -1;
+}
 function syncInputs(){
   $('text').value=S.text;
   $('subtitle').value=S.subtitle;
   $('subColor').value=S.subColor; $('subColorHex').textContent=S.subColor.toUpperCase();
+  const subIdx=matchPresetIndex(S.subColor,null);
+  $('subPreset').value=subIdx>=0?subIdx:'';
   $('dateToggle').textContent=S.dateOn?'On':'Off';
   $('dateToggle').classList.toggle('active',S.dateOn);
+  $('dateColor').value=S.dateColor; $('dateColorHex').textContent=S.dateColor.toUpperCase();
+  $('datePadColor').value=S.datePadColor; $('datePadColorHex').textContent=S.datePadColor.toUpperCase();
+  const dateIdx=matchPresetIndex(S.dateColor,S.datePadColor);
+  $('datePreset').value=dateIdx>=0?dateIdx:'';
+  $('dateMonth').value=S.dateMonth; $('dateYear').value=S.dateYear;
   $('fontSize').value=S.fontSize; $('fontSizeN').value=S.fontSize;
   $('lineHeight').value=S.lineHeight; $('lineHeightN').value=S.lineHeight;
   $('tracking').value=S.tracking; $('trackingN').value=S.tracking;
@@ -577,6 +688,9 @@ function syncInputs(){
   document.querySelectorAll('#alts input[type=checkbox]').forEach(function(cb){
     cb.checked=S.alts[+cb.dataset.alt];
   });
+  document.querySelectorAll('[data-scale]').forEach(function(btn){
+    btn.classList.toggle('active',+btn.dataset.scale===S.exportScale);
+  });
   setZoom(S.zoom);
 }
 
@@ -585,8 +699,9 @@ function featureSettings(){
   const on=ALTS.filter((a,i)=>S.alts[i]).map(a=>'"'+a.tag+'" 1');
   return on.length?on.join(','):'normal';
 }
-function fontStyle(size,trackPct){
-  return "font-family:'Hubot Sans',sans-serif;font-variation-settings:'wdth' 100,'wght' 450;"+
+function fontStyle(size,trackPct,wght,wdth){
+  wght=wght||450; wdth=wdth||100;
+  return "font-family:'Hubot Sans',sans-serif;font-variation-settings:'wdth' "+wdth+",'wght' "+wght+";"+
     "font-feature-settings:"+featureSettings()+";font-size:"+size+"px;"+
     "letter-spacing:"+(trackPct*size/100)+"px;";
 }
@@ -729,7 +844,7 @@ function render(){
 
   /* ---- subtitle: measured, own single line for now (wraps as one block if it has line breaks) ---- */
   const subSize=Math.max(10,size*0.32);
-  const subStyle=fontStyle(subSize,trackPct);
+  const subStyle=fontStyle(subSize,trackPct,350,100);
   const subLines=S.subtitle.split('\n').filter(l=>l.trim()!=='' ).length?S.subtitle.split('\n'):[];
   const subM=subLines.length?metrics(subSize,trackPct):null;
   const subPitch=subSize*(S.lineHeight/100);
@@ -739,12 +854,20 @@ function render(){
   const subMaxW=subWidths.length?Math.max(...subWidths):0;
 
   /* ---- date ---- */
-  const dateStr=new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  const dateStr=S.dateOn?(MONTHS[S.dateMonth-1]+' '+S.dateYear):'';
   const dateSize=Math.max(10,size*0.26);
   const dateStyle=fontStyle(dateSize,trackPct);
-  const dateW=S.dateOn?textWidth(dateStr,dateStyle):0;
   const dateM=S.dateOn?metrics(dateSize,trackPct):null;
-  const dateH=S.dateOn?(dateM.cap+dateM.desc):0;
+  const dateCap=S.dateOn?dateM.cap*(S.capPct/100):0;
+  /* left/right and top/bottom padding are both doubled relative to the
+     title's own whole-line padding — the default read too tight around the date */
+  const datePadStart=dateSize*(S.padStart/100)*2;
+  const datePadR=dateSize*(S.padROld/100)*2;
+  const datePadV=dateSize*(S.padVOld/100)*2;
+  /* dateW/dateH describe the date's own highlight box (text + its padding),
+     not just the text glyphs, so it centres and touches correctly below */
+  const dateW=S.dateOn?textWidth(dateStr,dateStyle)+datePadStart+datePadR:0;
+  const dateH=S.dateOn?(dateCap+datePadV*2):0;
   const dateGapPx=S.dateOn?DATE_GAP:0;
 
   /* ---- layout: auto-center whole assembly, or use the user's frame ---- */
@@ -762,6 +885,7 @@ function render(){
 
   const words=[]; /* flat, for allWords() */
   const lineRuns=[];
+  let lastLineRightEdge=null; /* last visual line's right edge, including highlight padding if its last word is highlighted */
   visualLines.forEach(function(line,i){
     const baseline=firstBaseline+i*pitch;
     const delta=targetLeft-lineBox[i].x;
@@ -778,6 +902,17 @@ function render(){
       else if(cur){ runs.push(cur); cur=null; }
     });
     if(cur) runs.push(cur);
+
+    /* if the line's last word is highlighted, the date should sit at the edge
+       of ITS highlight padding, not the bare glyph edge */
+    lastLineRightEdge=lw[lw.length-1].right;
+    if(runs.length){
+      const lastRun=runs[runs.length-1];
+      if(lastRun.b===lw.length-1){
+        const isWhole=lastRun.a===0&&lastRun.b===lw.length-1;
+        lastLineRightEdge=lw[lastRun.b].right+(isWhole?padRightWhole:padROther);
+      }
+    }
 
     runs.forEach(function(r){
       const isStart=r.a===0;
@@ -814,18 +949,22 @@ function render(){
       hit.setAttribute('class','hit-word');
       hit.style.cursor='pointer';
       hit.addEventListener('click',function(ev){
-        if(colorMode){ openWordPopover(w.gidx,ev.clientX,ev.clientY); return; }
         pushHistory();
         if(S.off[w.gidx]) delete S.off[w.gidx]; else S.off[w.gidx]=1;
         render();
+      });
+      hit.addEventListener('contextmenu',function(ev){
+        ev.preventDefault();
+        openWordPopover(w.gidx,ev.clientX,ev.clientY);
       });
       hitG.appendChild(hit);
     });
   });
   lastWords=words;
 
-  /* content right edge, used to right-align the date like the reference layout */
-  const contentRight=words.length?Math.max(...words.map(w=>w.right)):targetLeft+maxW;
+  /* the last visual line's own padded right edge — the date follows that
+     specific line's highlight box, not the widest line in the block */
+  const contentRight=(lastLineRightEdge!=null)?lastLineRightEdge:(targetLeft+maxW);
   const titleBottom=firstBaseline+(visualLines.length-1)*pitch+padVWhole;
 
   /* ---- draw subtitle ---- */
@@ -842,12 +981,24 @@ function render(){
   }
 
   /* ---- draw date ---- */
+  /* Its own highlight box, right edge flush with the title's rightmost content
+     and top edge flush with the title block's bottom (DATE_GAP=0) so it reads
+     as touching the last line, the way the reference layout does. */
   if(S.dateOn){
+    const boxRight=contentRight;
+    const boxLeft=boxRight-dateW;
+    const boxTop=titleBottom+dateGapPx;
+    const rect=document.createElementNS(NS,'rect');
+    rect.setAttribute('x',boxLeft); rect.setAttribute('y',boxTop);
+    rect.setAttribute('width',dateW); rect.setAttribute('height',dateH);
+    rect.setAttribute('fill',S.datePadColor);
+    dateG.appendChild(rect);
+
     const t=document.createElementNS(NS,'text');
-    t.setAttribute('style',dateStyle); t.setAttribute('fill',padColor);
+    t.setAttribute('style',dateStyle); t.setAttribute('fill',S.dateColor);
     t.setAttribute('text-anchor','end');
-    t.setAttribute('x',contentRight);
-    t.setAttribute('y',titleBottom+dateGapPx+dateM.cap);
+    t.setAttribute('x',boxRight-datePadR);
+    t.setAttribute('y',boxTop+datePadV+dateCap);
     t.textContent=dateStr;
     dateG.appendChild(t);
   }
@@ -856,23 +1007,29 @@ function render(){
   const fx=S.frame.x==null?autoX:S.frame.x;
   const fy=S.frame.y==null?autoY:S.frame.y;
   const fw=S.frame.width==null?Math.max(MIN_FRAME_W,maxW):S.frame.width;
+  /* Handles are sized in SVG units scaled by the current on-screen px-per-unit
+     ratio, so they stay a constant, grabbable screen size at any zoom level —
+     without this, zooming out shrinks them to an unclickable sliver. */
+  const screenScale=(board.getBoundingClientRect().width/1920)||1;
+  const handleSize=18/screenScale;
+
   const outline=document.createElementNS(NS,'rect');
   outline.setAttribute('x',fx); outline.setAttribute('y',fy);
   outline.setAttribute('width',fw); outline.setAttribute('height',Math.max(titleH,refBlockH));
   outline.setAttribute('fill','none'); outline.setAttribute('stroke','#2F6F62');
-  outline.setAttribute('stroke-width',2); outline.setAttribute('stroke-dasharray','8,6');
+  outline.setAttribute('stroke-width',2/screenScale); outline.setAttribute('stroke-dasharray',(8/screenScale)+','+(6/screenScale));
   outline.setAttribute('opacity',0.55);
   frameG.appendChild(outline);
 
   const moveH=document.createElementNS(NS,'rect');
-  moveH.setAttribute('x',fx-14); moveH.setAttribute('y',fy-14);
-  moveH.setAttribute('width',22); moveH.setAttribute('height',22);
+  moveH.setAttribute('x',fx-handleSize*0.64); moveH.setAttribute('y',fy-handleSize*0.64);
+  moveH.setAttribute('width',handleSize); moveH.setAttribute('height',handleSize);
   moveH.setAttribute('fill','#2F6F62'); moveH.setAttribute('class','frame-handle');
   frameG.appendChild(moveH);
 
   const resizeH=document.createElementNS(NS,'rect');
-  resizeH.setAttribute('x',fx+fw-11); resizeH.setAttribute('y',fy+Math.max(titleH,refBlockH)/2-14);
-  resizeH.setAttribute('width',22); resizeH.setAttribute('height',28);
+  resizeH.setAttribute('x',fx+fw-handleSize*0.5); resizeH.setAttribute('y',fy+Math.max(titleH,refBlockH)/2-handleSize*0.64);
+  resizeH.setAttribute('width',handleSize); resizeH.setAttribute('height',handleSize*1.27);
   resizeH.setAttribute('fill','#2F6F62'); resizeH.setAttribute('class','frame-handle resize');
   frameG.appendChild(resizeH);
 
@@ -917,19 +1074,24 @@ function attachDrag(el,mode){
    the font is already embedded as base64 in the page (#fontFace), this is just
    copying that text — no network fetch, works fully offline. UI-only layers
    (drag handles, click hit-boxes) are stripped before export, and the crop is
-   taken from the content group's own bounding box so the PNG is pixel-tight. */
+   taken from the content group's own bounding box so the PNG is pixel-tight.
+   The SVG stays vector until the final canvas draw, so rendering the source
+   at bbox size but drawing it onto a canvas scaled up by exportScale makes
+   the browser re-rasterise the text/shapes at that higher resolution — crisp
+   edges instead of blowing up an already-rasterised bitmap. */
 $('exportBtn').addEventListener('click',function(){
   const btn=this; btn.disabled=true; flash('Preparing export…');
   try{
     const contentEl=board.querySelector('.ui-content');
     const bbox=contentEl.getBBox();
     if(bbox.width<1||bbox.height<1){ throw new Error('nothing to export'); }
+    const scale=clamp(S.exportScale||3,1,4);
 
     const svg=board.cloneNode(true);
     svg.querySelectorAll('.ui-only').forEach(n=>n.remove());
     svg.setAttribute('xmlns',NS);
     svg.setAttribute('viewBox',bbox.x+' '+bbox.y+' '+bbox.width+' '+bbox.height);
-    svg.setAttribute('width',bbox.width); svg.setAttribute('height',bbox.height);
+    svg.setAttribute('width',bbox.width*scale); svg.setAttribute('height',bbox.height*scale);
     const st=document.createElementNS(NS,'style');
     st.textContent=$('fontFace').textContent;
     svg.insertBefore(st,svg.firstChild);
@@ -937,12 +1099,14 @@ $('exportBtn').addEventListener('click',function(){
     const img=new Image();
     img.onload=function(){
       const cv=document.createElement('canvas');
-      cv.width=Math.ceil(bbox.width); cv.height=Math.ceil(bbox.height); /* left transparent on purpose */
-      cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+      cv.width=Math.ceil(bbox.width*scale); cv.height=Math.ceil(bbox.height*scale); /* left transparent on purpose */
+      const ctx=cv.getContext('2d');
+      ctx.imageSmoothingQuality='high';
+      ctx.drawImage(img,0,0,cv.width,cv.height);
       const a=document.createElement('a');
       a.download='hubot-highlight.png';
       a.href=cv.toDataURL('image/png'); a.click();
-      btn.disabled=false; flash('PNG downloaded, '+cv.width+' × '+cv.height+', transparent.');
+      btn.disabled=false; flash('PNG downloaded, '+cv.width+' × '+cv.height+' ('+scale+'×), transparent.');
     };
     img.onerror=function(){ btn.disabled=false; flash('Export failed while rasterising.'); };
     img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(xml);
