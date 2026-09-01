@@ -74,6 +74,19 @@
     box-shadow:0 4px 14px rgba(0,0,0,.18);display:flex;flex-direction:column;gap:6px;min-width:170px}
   .popover .name{font-size:9px;font-family:var(--mono)}
   .popover button{width:auto}
+  .combo{position:relative}
+  .combo-trigger{display:flex;align-items:center;gap:8px;justify-content:flex-start}
+  .combo-trigger .combo-caret{margin-left:auto;font-size:9px;color:var(--muted)}
+  .combo-menu{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:30;background:#fff;
+    border:1px solid var(--ink);box-shadow:0 4px 14px rgba(0,0,0,.18);
+    display:flex;flex-direction:column;max-height:260px;overflow:auto}
+  .combo-menu[hidden]{display:none}
+  .combo-item{display:flex;align-items:center;gap:8px;justify-content:flex-start;width:100%;
+    border:none;border-bottom:1px solid var(--rule);padding:8px 10px;font-family:var(--mono);
+    font-size:11px;background:#fff;color:var(--ink);cursor:pointer;text-align:left}
+  .combo-item:last-child{border-bottom:none}
+  .swatch-dot{width:14px;height:14px;border-radius:50%;border:1px solid var(--rule);flex:none}
+  .swatch-dot.custom{background:#fff;border:1px dashed var(--muted)}
   .frame-handle{cursor:move}
   .frame-handle.resize{cursor:ew-resize}
   @media (max-width:900px){
@@ -112,7 +125,14 @@
       <textarea id="subtitle" spellcheck="false" placeholder="Optional line above the title"></textarea>
       <div class="field" style="margin-top:9px">
         <label>Colour preset</label>
-        <select id="subPreset"></select>
+        <div class="combo" id="subPresetCombo">
+          <button type="button" class="combo-trigger" id="subPresetTrigger">
+            <span class="swatch-dot"></span>
+            <span class="combo-label">Custom</span>
+            <span class="combo-caret">&#9662;</span>
+          </button>
+          <div class="combo-menu" id="subPresetMenu" hidden></div>
+        </div>
       </div>
       <div class="field">
         <label>Colour (custom)</label>
@@ -146,7 +166,14 @@ Project Wrap-up</textarea>
       </div>
       <div class="field">
         <label>Colour preset</label>
-        <select id="datePreset"></select>
+        <div class="combo" id="datePresetCombo">
+          <button type="button" class="combo-trigger" id="datePresetTrigger">
+            <span class="swatch-dot"></span>
+            <span class="combo-label">Custom</span>
+            <span class="combo-caret">&#9662;</span>
+          </button>
+          <div class="combo-menu" id="datePresetMenu" hidden></div>
+        </div>
       </div>
       <div class="field">
         <label>Font (custom)</label>
@@ -423,6 +450,9 @@ document.querySelectorAll('[data-scale]').forEach(function(btn){
   });
 });
 
+function syncColorField(id,hexId,value){
+  $(id).value=value; $(hexId).textContent=value.toUpperCase();
+}
 function colorField(inputId,hexId,key){
   const inp=$(inputId);
   inp.addEventListener('input',()=>{
@@ -450,23 +480,91 @@ $('dateSwapBtn').addEventListener('click',function(){
   syncInputs(); render();
 });
 
-const PRESET_OPTIONS='<option value="">Custom</option>'+
-  PRESETS.map((p,i)=>'<option value="'+i+'">'+p.name+'</option>').join('');
-$('subPreset').innerHTML=PRESET_OPTIONS;
-$('datePreset').innerHTML=PRESET_OPTIONS;
-$('subPreset').addEventListener('change',function(){
-  if(this.value==='') return;
-  pushHistory();
-  S.subColor=PRESETS[+this.value].font;
-  syncInputs(); render();
-});
-$('datePreset').addEventListener('change',function(){
-  if(this.value==='') return;
-  pushHistory();
-  const p=PRESETS[+this.value];
-  S.dateColor=p.font; S.datePadColor=p.pad;
-  syncInputs(); render();
-});
+/* A popover-style preset picker: hovering an option previews it live on the
+   canvas and in the raw colour pickers; moving off without clicking reverts;
+   clicking locks it in as one undo step (snapshotting the true pre-open
+   state, not whatever was last hovered). "Custom" leaves the colour as-is
+   and just closes the menu. */
+function initPresetCombo(triggerId,menuId,getState,setState){
+  const trigger=$(triggerId), menu=$(menuId);
+  const dot=trigger.querySelector('.swatch-dot');
+  const label=trigger.querySelector('.combo-label');
+  let original=null, open=false;
+
+  function refresh(){
+    const st=getState();
+    const idx=matchPresetIndex(st.font,('pad' in st)?st.pad:null);
+    dot.classList.toggle('custom',idx<0);
+    dot.style.background=idx>=0?PRESETS[idx].pad:'';
+    label.textContent=idx>=0?PRESETS[idx].name:'Custom';
+  }
+  function preview(state){
+    /* guards against a stray mouseover/mouseleave firing after close (e.g. a
+       delayed mouseleave synthesised when the menu's display flips to none
+       mid-click) from clobbering a commit that already happened */
+    if(!open) return;
+    setState(state); render();
+  }
+  function openMenu(){
+    if(open) return;
+    open=true;
+    original=getState();
+    menu.innerHTML=PRESETS.map((p,i)=>
+      '<button type="button" class="combo-item" data-i="'+i+'">'+
+        '<span class="swatch-dot" style="background:'+p.pad+'"></span>'+
+        '<span class="name">'+p.name+'</span></button>').join('')+
+      '<button type="button" class="combo-item" data-i="custom">'+
+        '<span class="swatch-dot custom"></span><span class="name">Custom</span></button>';
+    menu.hidden=false;
+  }
+  function closeMenu(committed){
+    if(!open) return;
+    open=false;
+    menu.hidden=true;
+    if(committed&&(committed.font!==original.font||committed.pad!==original.pad)){
+      setState(original);
+      pushHistory();
+      setState(committed);
+    }else{
+      setState(original);
+    }
+    refresh(); render();
+  }
+
+  trigger.addEventListener('click',function(e){
+    e.stopPropagation();
+    if(open) closeMenu(null); else openMenu();
+  });
+  menu.addEventListener('mouseover',function(e){
+    const b=e.target.closest('.combo-item'); if(!b) return;
+    if(b.dataset.i==='custom'){ preview(original); return; }
+    const p=PRESETS[+b.dataset.i];
+    preview({font:p.font,pad:p.pad});
+  });
+  menu.addEventListener('mouseleave',function(){ preview(original); });
+  menu.addEventListener('click',function(e){
+    const b=e.target.closest('.combo-item'); if(!b) return;
+    if(b.dataset.i==='custom'){ closeMenu(null); return; }
+    const p=PRESETS[+b.dataset.i];
+    closeMenu({font:p.font,pad:p.pad});
+  });
+  document.addEventListener('click',function(e){
+    if(open&&!trigger.contains(e.target)&&!menu.contains(e.target)) closeMenu(null);
+  });
+  document.addEventListener('keydown',function(e){
+    if(open&&e.key==='Escape') closeMenu(null);
+  });
+
+  refresh();
+  return {refresh:refresh};
+}
+
+const subPresetCombo=initPresetCombo('subPresetTrigger','subPresetMenu',
+  ()=>({font:S.subColor}),
+  (v)=>{ S.subColor=v.font; syncColorField('subColor','subColorHex',v.font); });
+const datePresetCombo=initPresetCombo('datePresetTrigger','datePresetMenu',
+  ()=>({font:S.dateColor,pad:S.datePadColor}),
+  (v)=>{ S.dateColor=v.font; S.datePadColor=v.pad; syncColorField('dateColor','dateColorHex',v.font); syncColorField('datePadColor','datePadColorHex',v.pad); });
 
 $('alts').innerHTML=ALTS.map((a,i)=>
   '<label><input type="checkbox" data-alt="'+i+'" '+(a.on?'checked':'')+'> '+a.name+'</label>').join('');
@@ -660,14 +758,12 @@ function syncInputs(){
   $('text').value=S.text;
   $('subtitle').value=S.subtitle;
   $('subColor').value=S.subColor; $('subColorHex').textContent=S.subColor.toUpperCase();
-  const subIdx=matchPresetIndex(S.subColor,null);
-  $('subPreset').value=subIdx>=0?subIdx:'';
+  subPresetCombo.refresh();
   $('dateToggle').textContent=S.dateOn?'On':'Off';
   $('dateToggle').classList.toggle('active',S.dateOn);
   $('dateColor').value=S.dateColor; $('dateColorHex').textContent=S.dateColor.toUpperCase();
   $('datePadColor').value=S.datePadColor; $('datePadColorHex').textContent=S.datePadColor.toUpperCase();
-  const dateIdx=matchPresetIndex(S.dateColor,S.datePadColor);
-  $('datePreset').value=dateIdx>=0?dateIdx:'';
+  datePresetCombo.refresh();
   $('dateMonth').value=S.dateMonth; $('dateYear').value=S.dateYear;
   $('fontSize').value=S.fontSize; $('fontSizeN').value=S.fontSize;
   $('lineHeight').value=S.lineHeight; $('lineHeightN').value=S.lineHeight;
