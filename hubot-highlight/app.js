@@ -411,7 +411,7 @@ const addDateHover=initHoverPanel('addDateAnchor','addDateMenu');
 function initSubtitleColourList(listId){
   const list=$(listId);
   list.innerHTML=PALETTE.map((c,i)=>
-    '<button type="button" class="combo-item" data-i="'+i+'" style="display:flex;align-items:center;gap:7px;justify-content:flex-start">'+
+    '<button type="button" class="combo-item" data-i="'+i+'" style="justify-content:flex-start">'+
       '<span class="swatch-dot" style="background:'+c.hex+'"></span>'+
       '<span class="name">'+c.name+'</span></button>').join('');
   let original=null;
@@ -894,19 +894,24 @@ function initToggleMenu(btnId,menuId,onOpen){
   });
 }
 initToggleMenu('exportMenuBtn','exportMenu');
-initToggleMenu('textAppearanceBtn','textAppearanceMenu');
 initToggleMenu('settingsBtn','settingsMenu',function(){ renderStLoadList(); });
+/* Text appearance opens on hover, like Add subtitle/Add date, rather than
+   click-to-toggle like Load/Save/Export/Settings — it has no on/off state
+   of its own to reserve the click for, so hover-only is enough. */
+const textAppearanceHover=initHoverPanel('textAppearanceAnchor','textAppearanceMenu');
 
 /* Text appearance also carries its own copy of Clear overrides/Colour
    presets/Highlight all/Un-highlight all/Swap colours — same actions as the
    board's right-click menu, reachable here too. Shares the colour-preset
-   submenu and swap-hover-preview logic with that menu (see openBoardMenu). */
+   submenu and swap-hover-preview logic with that menu (see openBoardMenu).
+   None of these force the panel closed afterward — like Add subtitle/Add
+   date, it just closes naturally once the mouse leaves it. */
 (function initTextAppearanceColourActions(){
   const menu=$('textAppearanceMenu');
   const swap=makeSwapHover(titleColourState.get,titleColourState.set);
   menu.addEventListener('mouseover',function(e){
     const b=e.target.closest('button[data-a]'); if(!b) return;
-    if(b.dataset.a==='presets'){ openColorPresetSubmenu(b,titleColourState.get,titleColourState.set,closeAllMenus); swap.revertSwap(); }
+    if(b.dataset.a==='presets'){ openColorPresetSubmenu(b,titleColourState.get,titleColourState.set,null,textAppearanceHover); swap.revertSwap(); }
     else if(b.dataset.a==='swap'){ closeColorSubmenu(); swap.previewSwap(); }
     else{ closeColorSubmenu(); swap.revertSwap(); }
   });
@@ -920,7 +925,6 @@ initToggleMenu('settingsBtn','settingsMenu',function(){ renderStLoadList(); });
       case 'deselectAll': unhighlightAllWords(); break;
       case 'swap': swap.commitSwap(); break;
     }
-    closeAllMenus();
   });
 })();
 
