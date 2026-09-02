@@ -31,7 +31,14 @@
   .wrap{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap}
   .canvas{flex:1 1 640px;min-width:300px;position:sticky;top:calc(var(--hh,68px) + 18px);align-self:flex-start; height:100vh}
   /* the white here is the preview surface only — it is never part of the export */
-  .stage{background:#fff;border:1px solid var(--rule);display:flex;justify-content:center;padding:6px;overflow:auto; height:100%}
+  /* safe center (not plain center): plain center on an overflow:auto flex
+     container can push overflowing content past the scrollport's start edge
+     into territory that's never reachable by scrolling — which is exactly
+     what stranded the frame's resize handle out of both view and click reach
+     once a zoomed board grew past .stage's own box. safe falls back to
+     start-alignment only for the overflowing amount, so it's still centred
+     whenever it fits, but nothing goes permanently out of reach. */
+  .stage{background:#fff;border:1px solid var(--rule);display:flex;justify-content:safe center;align-items:safe center;padding:6px;overflow:auto; height:100%}
   svg#board{width:100%;height:auto;max-height:calc(100vh - var(--hh,68px) - 40px);display:block;flex:none; overflow:visible}
   aside{flex:0 1 280px;min-width:260px;columns:1;column-gap:14px}
   aside > *{break-inside:avoid;margin-bottom:14px}
@@ -79,7 +86,6 @@
   .combo-item:last-child{border-bottom:none}
   .swatch-dot{width:14px;height:14px;border-radius:50%;border:1px solid var(--rule);flex:none}
   .swatch-dot.custom{background:#fff;border:1px dashed var(--muted)}
-  .frame-handle{cursor:move}
   .frame-handle.resize{cursor:ew-resize}
   @keyframes text-caret-blink{0%,50%{opacity:1}50.01%,100%{opacity:0}}
   .text-caret{animation:text-caret-blink 1s step-end infinite}
@@ -222,6 +228,7 @@ Project Wrap-up</textarea>
         <button data-scale="2">2&times;</button>
         <button data-scale="3">3&times;</button>
         <button data-scale="4">4&times;</button>
+        <button data-scale="6">6&times;</button>
       </div>
       <button id="exportBtn">Export PNG</button>
       <p class="hint">Writes a transparent PNG cropped tight to the rendered content, rasterised at the resolution above for crisp edges — the white you see behind the preview is not included.</p>
@@ -273,10 +280,11 @@ const PALETTE=[
   {name:'Stone',           hex:'#EEEDE3'},
   {name:'White',           hex:'#FFFFFF'}
 ];
-const ZOOM_MIN=50, ZOOM_MAX=150, ZOOM_STEP=12.5;
+const ZOOM_MIN=12.5, ZOOM_MAX=150, ZOOM_STEP=12.5;
 const GAP_ABOVE_SUBTITLE=0.14;   /* x font size, gap between subtitle and title */
 const DATE_GAP=0;                /* px — date highlight sits flush against the title block's last line */
 const MIN_FRAME_W=160;
+const MAX_FRAME_W=1920; /* the whole canvas — the frame can't be resized past its edges */
 const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 const YEAR_MIN=2020, YEAR_MAX=2040;
 
@@ -760,10 +768,28 @@ function openDatePopover(clientX,clientY){
 }
 
 /* ---------- zoom ---------- */
+/* The 100%-zoom "fit to screen" size, measured once from the CSS default
+   (width:100% of .stage, capped by max-height) rather than duplicating that
+   calc() in JS. Cached so setZoom doesn't force a layout on every call —
+   only boot and viewport-size changes (see measureHeader) recompute it. */
+let boardFitWidth=null;
+function measureFitWidth(){
+  const savedW=board.style.width, savedMH=board.style.maxHeight;
+  board.style.width=''; board.style.maxHeight='';
+  boardFitWidth=board.getBoundingClientRect().width||800;
+  board.style.width=savedW;
+  /* neutralised from here on — with an explicit px width below, this rule
+     would otherwise keep re-clamping height (and thus width, since it's a
+     replaced element with an intrinsic ratio) back down past 100%, which
+     is exactly the zoom ceiling this replaces. */
+  board.style.maxHeight='none';
+}
 function setZoom(z){
   S.zoom=clamp(Math.round(z*8)/8,ZOOM_MIN,ZOOM_MAX);
-  board.style.width=S.zoom+'%';
-  $('zoomLbl').textContent=Math.round(S.zoom)+'%';
+  if(boardFitWidth==null) measureFitWidth();
+  board.style.width=(boardFitWidth*S.zoom/100)+'px';
+  board.style.height='auto';
+  $('zoomLbl').textContent=(Math.round(S.zoom*2)/2)+'%';
   /* frame-handle sizing is scale-aware (see render()) — re-render so handles
      stay a constant, grabbable screen size right after the zoom changes */
   render();
@@ -772,11 +798,11 @@ $('zoomIn').addEventListener('click',function(){ setZoom(S.zoom+ZOOM_STEP); });
 $('zoomOut').addEventListener('click',function(){ setZoom(S.zoom-ZOOM_STEP); });
 
 function ensureFrame(){
-  if(S.frame.x==null||S.frame.y==null||S.frame.width==null){
-    const a=lastAutoFrame||{x:0,y:0,width:400};
-    if(S.frame.x==null) S.frame.x=a.x;
-    if(S.frame.y==null) S.frame.y=a.y;
-    if(S.frame.width==null) S.frame.width=a.width;
+  /* the frame always stays centred (x/y are never user-set — see frameX/frameY
+     in render()), so only its width needs a concrete baseline before a resize
+     drag can compute relative deltas off it */
+  if(S.frame.width==null){
+    S.frame.width=(lastAutoFrame||{width:400}).width;
   }
 }
 
@@ -1048,7 +1074,6 @@ function render(){
 
   function wordFontColor(gidx){ const o=S.wordColors[gidx]; return o?o.font:null; }
   function wordPadColor(gidx){ const o=S.wordColors[gidx]; return o?o.pad:padColor; }
-
   board.innerHTML='';
   const contentG=document.createElementNS(NS,'g'); contentG.setAttribute('class','ui-content');
   const rectG=document.createElementNS(NS,'g');
@@ -1134,8 +1159,11 @@ function render(){
   const autoY=(1080-totalH)/2+subH+subGapPx;
   lastAutoFrame={x:autoX,y:autoY,width:Math.max(MIN_FRAME_W,maxW)};
 
-  const frameX=S.frame.x==null?autoX:S.frame.x;
-  const frameY=S.frame.y==null?autoY:S.frame.y;
+  /* frame position is never user-controlled — only its width (the wrap
+     boundary) is draggable — so the whole title/subtitle/date block always
+     stays centred on the canvas */
+  const frameX=autoX;
+  const frameY=autoY;
 
   const firstBaseline=frameY+cap;
   const targetLeft=frameX;
@@ -1366,37 +1394,36 @@ function render(){
     hitG.appendChild(dateHit);
   }
 
-  /* ---- frame drag handles ---- */
-  const fx=S.frame.x==null?autoX:S.frame.x;
-  const fy=S.frame.y==null?autoY:S.frame.y;
+  /* ---- frame resize handle ---- */
+  /* the frame can only be resized (its wrap width), never moved — position
+     always follows autoX/autoY above, so the block stays centred on canvas */
+  const fx=autoX, fy=autoY;
   const fw=S.frame.width==null?Math.max(MIN_FRAME_W,maxW):S.frame.width;
   /* Handles are sized in SVG units scaled by the current on-screen px-per-unit
      ratio, so they stay a constant, grabbable screen size at any zoom level —
      without this, zooming out shrinks them to an unclickable sliver. */
   const screenScale=(board.getBoundingClientRect().width/1920)||1;
   const handleSize=18/screenScale;
+  /* the outline is purely a visual guide — clamp what's drawn so it never
+     visually runs past the canvas edge, even though fw itself (the wrap
+     boundary) can be wider than what's actually visible here */
+  const outlineW=Math.max(0,Math.min(fw,1920-fx));
 
   const outline=document.createElementNS(NS,'rect');
   outline.setAttribute('x',fx); outline.setAttribute('y',fy);
-  outline.setAttribute('width',fw); outline.setAttribute('height',Math.max(titleH,refBlockH));
+  outline.setAttribute('width',outlineW); outline.setAttribute('height',Math.max(titleH,refBlockH));
   outline.setAttribute('fill','none'); outline.setAttribute('stroke','#2F6F62');
   outline.setAttribute('stroke-width',2/screenScale); outline.setAttribute('stroke-dasharray',(8/screenScale)+','+(6/screenScale));
   outline.setAttribute('opacity',0.55);
   frameG.appendChild(outline);
 
-  const moveH=document.createElementNS(NS,'rect');
-  moveH.setAttribute('x',fx-handleSize*0.64); moveH.setAttribute('y',fy-handleSize*0.64);
-  moveH.setAttribute('width',handleSize); moveH.setAttribute('height',handleSize);
-  moveH.setAttribute('fill','#2F6F62'); moveH.setAttribute('class','frame-handle');
-  frameG.appendChild(moveH);
-
   const resizeH=document.createElementNS(NS,'rect');
-  resizeH.setAttribute('x',fx+fw-handleSize*0.5); resizeH.setAttribute('y',fy+Math.max(titleH,refBlockH)/2-handleSize*0.64);
+  resizeH.setAttribute('x',fx+outlineW-handleSize*0.5); resizeH.setAttribute('y',fy+Math.max(titleH,refBlockH)/2-handleSize*0.64);
   resizeH.setAttribute('width',handleSize); resizeH.setAttribute('height',handleSize*1.27);
   resizeH.setAttribute('fill','#2F6F62'); resizeH.setAttribute('class','frame-handle resize');
   frameG.appendChild(resizeH);
 
-  attachDrag(moveH,'move'); attachDrag(resizeH,'resize');
+  attachDrag(resizeH);
 }
 
 /* ---------- frame dragging ---------- */
@@ -1405,21 +1432,17 @@ function svgPoint(evt){
   pt.x=evt.clientX; pt.y=evt.clientY;
   return pt.matrixTransform(board.getScreenCTM().inverse());
 }
-function attachDrag(el,mode){
+function attachDrag(el){
   el.addEventListener('pointerdown',function(e){
     e.preventDefault(); e.stopPropagation();
     ensureFrame();
     pushHistory();
     const start=svgPoint(e);
-    const startFrame={x:S.frame.x,y:S.frame.y,width:S.frame.width};
+    const startFrame={width:S.frame.width};
     function onMove(ev){
       const p=svgPoint(ev);
-      const dx=p.x-start.x, dy=p.y-start.y;
-      if(mode==='move'){
-        S.frame.x=startFrame.x+dx; S.frame.y=startFrame.y+dy;
-      }else{
-        S.frame.width=Math.max(MIN_FRAME_W,startFrame.width+dx);
-      }
+      const dx=p.x-start.x;
+      S.frame.width=clamp(startFrame.width+dx,MIN_FRAME_W,MAX_FRAME_W);
       syncInputs(); render();
     }
     function onUp(){
@@ -1437,32 +1460,62 @@ function attachDrag(el,mode){
    the font is already embedded as base64 in the page (#fontFace), this is just
    copying that text — no network fetch, works fully offline. UI-only layers
    (drag handles, click hit-boxes) are stripped before export, and the crop is
-   taken from the content group's own bounding box so the PNG is pixel-tight.
-   The SVG stays vector until the final canvas draw, so rendering the source
+   taken from the content group's own bounding box so the PNG is pixel-tight. */
+function buildExportSVG(){
+  /* Forces a fresh measurement pass right before export. Without this, a
+     render() from before the (locally-embedded, but still asynchronously
+     parsed) variable font finished loading can leave lastWords sized against
+     a fallback font — invisible on screen, since the painted glyphs re-swap
+     to the real font automatically once it's ready regardless of any JS
+     re-render, but it would still leave the highlight rects/crop bbox
+     computed from the stale, wrong-font measurements. */
+  render();
+  const contentEl=board.querySelector('.ui-content');
+  const bbox=contentEl.getBBox();
+  if(bbox.width<1||bbox.height<1){ throw new Error('nothing to export'); }
+
+  const svg=board.cloneNode(true);
+  svg.querySelectorAll('.ui-only').forEach(n=>n.remove());
+  /* the clone inherits board's live on-screen zoom sizing (inline
+     width/height px, plus max-height:none once zoom has ever run) — left in
+     place, that overrides the width/height attributes set below for export
+     (CSS always wins over presentation attributes), scaling the output by
+     whatever the editor's zoom happened to be and clipping off whatever
+     falls outside it (wrapped lines included) at any zoom other than 100% */
+  svg.style.width=''; svg.style.height=''; svg.style.maxHeight=''; svg.style.transform='';
+  svg.setAttribute('xmlns',NS);
+  svg.setAttribute('viewBox',bbox.x+' '+bbox.y+' '+bbox.width+' '+bbox.height);
+  const st=document.createElementNS(NS,'style');
+  st.textContent=$('fontFace').textContent;
+  svg.insertBefore(st,svg.firstChild);
+  return {svg:svg, bbox:bbox};
+}
+
+/* The SVG stays vector until the final canvas draw, so rendering the source
    at bbox size but drawing it onto a canvas scaled up by exportScale makes
    the browser re-rasterise the text/shapes at that higher resolution — crisp
-   edges instead of blowing up an already-rasterised bitmap. */
+   edges instead of blowing up an already-rasterised bitmap. Getting a truly
+   crisp result depends on that rasterisation happening at EXACTLY the
+   canvas's own pixel size: the SVG's width/height attributes used to be set
+   to the raw, fractional bbox.width*scale while the canvas rounded up to the
+   next whole pixel, so the two never quite matched — drawImage then had to
+   resample by that fraction of a pixel to fit one into the other, softening
+   the entire image slightly. Rounding once and reusing that exact figure for
+   both removes the mismatch, so the copy onto the canvas is pixel-for-pixel
+   with nothing to resample. */
 $('exportBtn').addEventListener('click',function(){
   const btn=this; btn.disabled=true; flash('Preparing export…');
   try{
-    const contentEl=board.querySelector('.ui-content');
-    const bbox=contentEl.getBBox();
-    if(bbox.width<1||bbox.height<1){ throw new Error('nothing to export'); }
-    const scale=clamp(S.exportScale||3,1,4);
-
-    const svg=board.cloneNode(true);
-    svg.querySelectorAll('.ui-only').forEach(n=>n.remove());
-    svg.setAttribute('xmlns',NS);
-    svg.setAttribute('viewBox',bbox.x+' '+bbox.y+' '+bbox.width+' '+bbox.height);
-    svg.setAttribute('width',bbox.width*scale); svg.setAttribute('height',bbox.height*scale);
-    const st=document.createElementNS(NS,'style');
-    st.textContent=$('fontFace').textContent;
-    svg.insertBefore(st,svg.firstChild);
+    const built=buildExportSVG();
+    const svg=built.svg, bbox=built.bbox;
+    const scale=clamp(S.exportScale||3,1,6);
+    const outW=Math.round(bbox.width*scale), outH=Math.round(bbox.height*scale);
+    svg.setAttribute('width',outW); svg.setAttribute('height',outH);
     const xml=new XMLSerializer().serializeToString(svg);
     const img=new Image();
     img.onload=function(){
       const cv=document.createElement('canvas');
-      cv.width=Math.ceil(bbox.width*scale); cv.height=Math.ceil(bbox.height*scale); /* left transparent on purpose */
+      cv.width=outW; cv.height=outH; /* left transparent on purpose */
       const ctx=cv.getContext('2d');
       ctx.imageSmoothingQuality='high';
       ctx.drawImage(img,0,0,cv.width,cv.height);
@@ -1483,6 +1536,10 @@ $('exportBtn').addEventListener('click',function(){
 function measureHeader(){
   const h=document.querySelector('header');
   if(h) document.documentElement.style.setProperty('--hh',h.offsetHeight+'px');
+  /* the 100%-zoom baseline depends on viewport/header size (see
+     measureFitWidth) — keep it current and reapply the user's zoom level
+     against it */
+  if(typeof measureFitWidth==='function'){ measureFitWidth(); setZoom(S.zoom); }
 }
 window.addEventListener('resize',function(){ measureHeader(); });
 if(document.fonts&&document.fonts.ready){
