@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hubot Highlight</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+
+<div id="modal"><div class="modal-box" id="modalBox">
+  <span class="lbl" id="modalTitle"></span>
+  <p id="modalMsg"></p>
+  <div class="stack" id="modalActions"></div>
+</div></div>
+
+<header>
+  <div class="hdr-left">
+    <h1>Hubot Highlight</h1>
+  </div>
+  <div class="hdr-tools">
+    <button id="undoBtn" title="Undo">&#8634; Undo</button>
+    <button id="redoBtn" title="Redo">&#8635; Redo</button>
+    <div class="zoomctl">
+      <button id="zoomOut">&minus;</button>
+      <span id="zoomLbl">100%</span>
+      <button id="zoomIn">+</button>
+    </div>
+    <span class="lbl" id="status"></span>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="canvas">
+    <div class="stage"><svg id="board" viewBox="0 0 1920 1080" width="1920" height="1080" xmlns="http://www.w3.org/2000/svg"></svg></div>
+  </div>
+
+  <aside>
+    <div class="panel">
+      <span class="lbl">Subtitle</span>
+      <textarea id="subtitle" spellcheck="true" placeholder="Optional line above the title"></textarea>
+      <div class="field" style="margin-top:9px">
+        <label>Colour preset</label>
+        <div class="combo" id="subPresetCombo">
+          <button type="button" class="combo-trigger" id="subPresetTrigger">
+            <span class="swatch-dot"></span>
+            <span class="combo-label">Custom</span>
+            <span class="combo-caret">&#9662;</span>
+          </button>
+          <div class="combo-menu" id="subPresetMenu" hidden></div>
+        </div>
+      </div>
+      <p class="hint">Sits above the title. Plain text — it can't be highlighted or clicked.</p>
+    </div>
+
+    <div class="panel">
+      <div class="lbl-row"><span class="lbl">Text</span></div>
+      <textarea id="text" spellcheck="true">Black Maternal Futures
+Project Wrap-up</textarea>
+      <div class="btn-row" style="margin-top:9px">
+        <button id="selectAllBtn">Highlight all</button>
+        <button id="deselectAllBtn">Unhighlight all</button>
+      </div>
+      <p class="hint">Press Enter for a new line. Click a word in the preview to jump the cursor here and start typing. Double-click a word to drop its highlight; double-click again to bring it back. Right-click a word to give it its own colour combo. Drag the green handle on the preview to move the title, or its edge handle to resize.</p>
+    </div>
+
+    <div class="panel">
+      <div class="lbl-row">
+        <span class="lbl">Date</span>
+        <button id="dateToggle" style="width:auto;padding:5px 9px">Off</button>
+      </div>
+      <div class="field">
+        <label>Month / year</label>
+        <div class="row">
+          <select id="dateMonth" style="flex:1"></select>
+          <select id="dateYear" style="flex:1"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Colour preset</label>
+        <div class="combo" id="datePresetCombo">
+          <button type="button" class="combo-trigger" id="datePresetTrigger">
+            <span class="swatch-dot"></span>
+            <span class="combo-label">Custom</span>
+            <span class="combo-caret">&#9662;</span>
+          </button>
+          <div class="combo-menu" id="datePresetMenu" hidden></div>
+        </div>
+      </div>
+      <button id="dateSwapBtn">&#8646; Swap colours</button>
+      <p class="hint">Prints as "Month Year", right-aligned and touching the last line of the title, with its own highlight.</p>
+    </div>
+
+    <div class="panel">
+      <span class="lbl">Type</span>
+      <div class="field">
+        <label>Font size</label>
+        <div class="btn-row">
+          <button data-size="150">150px</button>
+          <button data-size="100">100px</button>
+          <button data-size="50">50px</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <span class="lbl">Colour presets</span>
+      <div class="field">
+        <div class="combo" id="titlePresetCombo">
+          <button type="button" class="combo-trigger" id="titlePresetTrigger">
+            <span class="swatch-dot"></span>
+            <span class="combo-label">—</span>
+            <span class="combo-caret">&#9662;</span>
+          </button>
+          <div class="combo-menu" id="titlePresetMenu" hidden></div>
+        </div>
+      </div>
+      <button id="colorSwapBtn" style="margin-top:2px">&#8646; Swap colours</button>
+      <button id="clearOverridesBtn" style="margin-top:8px">Clear all overrides</button>
+      <p class="hint">Left-click a word to toggle its highlight. Right-click a word to give it its own colour combo.</p>
+    </div>
+
+    <div class="panel">
+      <span class="lbl">Save &amp; load</span>
+      <div class="field">
+        <label>Name</label>
+        <input type="text" id="layoutName" placeholder="Untitled">
+      </div>
+      <div class="btn-row" style="margin-bottom:8px">
+        <button id="saveSlotBtn">Save</button>
+      </div>
+      <div id="savedList"></div>
+      <div class="btn-row" style="margin-top:10px">
+        <button id="exportJsonBtn">Export .json</button>
+        <button id="importJsonBtn">Import .json</button>
+      </div>
+      <input type="file" id="importJsonFile" accept="application/json" style="display:none">
+    </div>
+
+    <div class="panel">
+      <span class="lbl">Export resolution</span>
+      <div class="btn-row" style="margin-bottom:10px">
+        <button data-scale="1">1&times;</button>
+        <button data-scale="2">2&times;</button>
+      </div>
+      <div class="btn-row">
+        <button id="exportBtn">Export PNG</button>
+        <button id="exportSvgBtn">Export SVG</button>
+      </div>
+      <p class="hint">PNG: transparent, cropped tight to the rendered content, rasterised at the resolution above for crisp edges — the white you see behind the preview is not included. SVG: the same crop as a vector file (resolution above doesn't apply), with all text converted to outlines so it opens correctly anywhere, no font required.</p>
+    </div>
+  </aside>
+</div>
+
+<script type="module" src="harfbuzz-bundle.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
