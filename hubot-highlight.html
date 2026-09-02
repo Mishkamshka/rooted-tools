@@ -1077,7 +1077,25 @@ function render(){
     const bb=b.t.getBBox();
     return {x:bb.x, w:bb.width};
   });
-  const wordBox=built.map(b=>b.tspans.map(ts=>({gidx:ts.gidx, bb:ts.el.getBBox()})));
+  /* Per-word x/width from measured prefix substrings, not getBBox() on each
+     tspan: Safari returns wrong bounding boxes for tspans placed by natural
+     text-flow continuation (no explicit x) once there's more than one on a
+     line — only the first tspan's box came back right. That silently threw
+     off every highlight-run edge and click hit-rect for the 2nd+ word on a
+     line in Safari, while Chrome happened to compute it correctly. Measuring
+     the same way wrapParagraph() already measures line widths sidesteps it
+     entirely. */
+  const wordBox=visualLines.map(function(line){
+    return line.map(function(w,j){
+      const width=textWidth(w.text,style);
+      /* SVG text measurement trims leading/trailing whitespace, so a
+         trailing space appended to just the prefix is silently dropped —
+         measuring through this word and subtracting its own width back off
+         is what actually captures the interior space before it. */
+      const before=j===0?0:textWidth(line.slice(0,j+1).map(x=>x.text).join(' '),style)-width;
+      return {gidx:w.gidx, bb:{x:before, width:width}};
+    });
+  });
   const maxW=Math.max(1,...lineBox.map(o=>o.w));
   const titleH=(visualLines.length-1)*pitch+refBlockH;
 
