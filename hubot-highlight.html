@@ -299,7 +299,9 @@ function defaultState(){
 }
 let S=defaultState();
 let dirty=false;
-let caretVisible=false; /* whether the sidebar Text field currently has focus */
+let lastWordClick=null; /* {gidx,t} — own double-click detection, keyed by the
+  word's stable gidx rather than the DOM element, which gets replaced by
+  every render() and so can't be used to track a click across two events */
 /* Warn on refresh/close only once something has actually changed since the
    last save/export/load — not on every visit. */
 window.addEventListener('beforeunload',function(e){
@@ -558,10 +560,10 @@ $('text').addEventListener('input',function(){ pushHistoryCoalesced(); S.text=$(
    element that same click is still in the middle of dispatching to — so the
    click silently never lands. Pushing the render a tick later lets that
    click's own mousedown/mouseup/click sequence finish untouched first. */
-$('text').addEventListener('focus',function(){ caretVisible=true; setTimeout(render,0); });
-$('text').addEventListener('blur',function(){ caretVisible=false; setTimeout(render,0); });
-$('text').addEventListener('keyup',function(){ if(caretVisible) render(); });
-$('text').addEventListener('click',function(){ if(caretVisible) render(); });
+$('text').addEventListener('focus',function(){ setTimeout(render,0); });
+$('text').addEventListener('blur',function(){ setTimeout(render,0); });
+$('text').addEventListener('keyup',function(){ render(); });
+$('text').addEventListener('click',function(){ render(); });
 $('subtitle').addEventListener('input',function(){ pushHistoryCoalesced(); S.subtitle=$('subtitle').value; render(); });
 
 $('dateToggle').addEventListener('click',function(){
@@ -1030,7 +1032,12 @@ function render(){
   const words=[]; /* flat, for allWords() */
   const lineRuns=[];
   let lastLineRightEdge=null; /* last visual line's right edge, including highlight padding if its last word is highlighted */
-  const caretTarget=(caretVisible&&document.activeElement===$('text'))
+  /* document.activeElement changes synchronously the instant .focus() is
+     called — checking it directly here (rather than a separate flag set from
+     inside a 'focus'/'blur' listener) means the very first render right
+     after a click already shows the caret in the right place, instead of
+     lagging one extra render behind while that listener's own state catches up. */
+  const caretTarget=(document.activeElement===$('text'))
     ?offsetToWordPosition(S.text,$('text').selectionStart):null;
   visualLines.forEach(function(line,i){
     const baseline=firstBaseline+i*pitch;
@@ -1108,29 +1115,40 @@ function render(){
       hit.setAttribute('fill','transparent');
       hit.setAttribute('class','hit-word');
       hit.style.cursor='pointer';
+      hit.addEventListener('mousedown',function(ev){
+        /* Root fix: an SVG rect isn't focusable, so mousedown here would
+           otherwise let the browser blur the sidebar Text field by default —
+           right before the resulting 'click' handler tries to focus it again
+           and move the cursor. Every earlier attempt at this was reacting to
+           that blur after the fact (deferred renders, timing heuristics);
+           preventing it from happening at all removes the whole race. */
+        if(ev.button===0) ev.preventDefault();
+      });
       hit.addEventListener('click',function(ev){
-        /* single click: jump into the sidebar text field at the nearest
-           character to where you actually clicked, mid-word included —
-           there's no real in-canvas text input here (the canvas has its own
-           wrap engine, independent of the browser's text layout), just a
-           fake blinking caret drawn at the resulting cursor position.
-           Native 'click' fires even during a double-click gesture (before
-           'dblclick'), and this action steals focus and rebuilds the whole
-           board — doing that on every click broke double-click detection,
-           so it's deferred and cancelled if a second click arrives in time. */
-        if(hit._clickTimer){ clearTimeout(hit._clickTimer); hit._clickTimer=null; return; }
+        /* Every click jumps the cursor to the nearest character, mid-word
+           included — there's no real in-canvas text input here (the canvas
+           has its own wrap engine, independent of the browser's text
+           layout), just a fake blinking caret drawn at the resulting cursor
+           position. Double-click detection is done ourselves (by gidx +
+           timestamp) rather than trusting the browser's native 'dblclick':
+           every click here also calls render(), which replaces this exact
+           DOM element, and once the element a double-click's two clicks
+           landed on differs between them, browsers can stop recognising it
+           as one gesture — native ev.detail/'dblclick' turned out not to be
+           reliable enough for that reason. A genuine double-click still also
+           jumps the cursor once (from its first click) before toggling. */
+        const now=Date.now();
+        const isDouble=lastWordClick&&lastWordClick.gidx===w.gidx&&(now-lastWordClick.t)<500;
+        lastWordClick={gidx:w.gidx,t:now};
         const p=svgPoint(ev);
         const n=charIndexInWord(w.text,style,p.x-w.left);
-        const offset=wordCharOffset(S.text,w.gidx)+n;
-        hit._clickTimer=setTimeout(function(){
-          hit._clickTimer=null;
-          focusTextAt(offset);
-        },250);
-      });
-      hit.addEventListener('dblclick',function(ev){
-        pushHistory();
-        if(S.off[w.gidx]) delete S.off[w.gidx]; else S.off[w.gidx]=1;
-        render();
+        focusTextAt(wordCharOffset(S.text,w.gidx)+n);
+        if(isDouble){
+          lastWordClick=null;
+          pushHistory();
+          if(S.off[w.gidx]) delete S.off[w.gidx]; else S.off[w.gidx]=1;
+          render();
+        }
       });
       hit.addEventListener('contextmenu',function(ev){
         ev.preventDefault();
