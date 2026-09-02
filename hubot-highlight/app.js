@@ -139,6 +139,16 @@ document.querySelectorAll('[data-size]').forEach(function(btn){
     syncInputs(); render();
   });
 });
+/* Settings' duplicate of the old "Export resolution" panel keeps that
+   panel's original two-step shape (pick a scale, then press Export) rather
+   than the header Export dropdown's single-click-per-scale items — both
+   end up calling the same exportPNG(scale,btn). */
+document.querySelectorAll('[data-scale]').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    S.exportScale=+btn.dataset.scale;
+    syncInputs();
+  });
+});
 
 /* Named so the board's right-click context menu can call them directly —
    these used to be sidebar buttons the menu triggered via .click(), but the
@@ -165,6 +175,11 @@ function unhighlightAllWords(){
   S.wordColors={};
   render();
 }
+/* Settings' duplicates of the same four actions. */
+$('stSelectAllBtn').addEventListener('click',function(){ highlightAllWords(); closeAllMenus(); });
+$('stDeselectAllBtn').addEventListener('click',function(){ unhighlightAllWords(); closeAllMenus(); });
+$('stColorSwapBtn').addEventListener('click',function(){ swapTitleColours(); closeAllMenus(); });
+$('stClearOverridesBtn').addEventListener('click',function(){ clearAllOverrides(); closeAllMenus(); });
 
 $('dateSwapBtn').addEventListener('click',function(){
   pushHistory();
@@ -320,8 +335,14 @@ function initColorCombo(triggerId,menuId,list,getState,setState){
 const datePresetCombo=initPresetCombo('datePresetTrigger','datePresetMenu',
   ()=>({font:S.dateColor,pad:S.datePadColor}),
   (v)=>{ S.dateColor=v.font; S.datePadColor=v.pad; });
+/* Settings' duplicate of the old "Colour presets" panel — same collapsed
+   trigger+dropdown style that panel used, unlike the board/Text-appearance
+   menus' always-expanded flat list. */
+const stTitlePresetCombo=initPresetCombo('stTitlePresetTrigger','stTitlePresetMenu',
+  ()=>({font:S.fontColor,pad:S.padColor}),
+  (v)=>{ S.fontColor=v.font; S.padColor=v.pad; });
 
-$('text').addEventListener('input',function(){ pushHistoryCoalesced(); S.text=$('text').value; render(); });
+$('text').addEventListener('input',function(){ pushHistoryCoalesced(); S.text=$('text').value; $('stText').value=S.text; render(); });
 /* the canvas caret tracks this field's real cursor, so anything that can
    move the cursor (typing, arrow keys, clicking inside the field itself)
    needs to trigger a redraw, not just changes to the text's value */
@@ -335,7 +356,20 @@ $('text').addEventListener('focus',function(){ setTimeout(render,0); });
 $('text').addEventListener('blur',function(){ setTimeout(render,0); });
 $('text').addEventListener('keyup',function(){ render(); });
 $('text').addEventListener('click',function(){ render(); });
-$('subtitle').addEventListener('input',function(){ pushHistoryCoalesced(); S.subtitle=$('subtitle').value; render(); });
+$('subtitle').addEventListener('input',function(){ pushHistoryCoalesced(); S.subtitle=$('subtitle').value; $('stSubtitle').value=S.subtitle; render(); });
+
+/* Settings duplicates the Text/Subtitle fields too — same wiring, mirrored
+   onto a second element since an id (and so a DOM node) can't be shared
+   between two places at once. Each one's own input handler also writes
+   straight into the other's .value, so they stay in sync live while typing
+   rather than only catching up the next time syncInputs() happens to run
+   (e.g. after a button action, undo/redo, or load). */
+$('stText').addEventListener('input',function(){ pushHistoryCoalesced(); S.text=$('stText').value; $('text').value=S.text; render(); });
+$('stText').addEventListener('focus',function(){ setTimeout(render,0); });
+$('stText').addEventListener('blur',function(){ setTimeout(render,0); });
+$('stText').addEventListener('keyup',function(){ render(); });
+$('stText').addEventListener('click',function(){ render(); });
+$('stSubtitle').addEventListener('input',function(){ pushHistoryCoalesced(); S.subtitle=$('stSubtitle').value; $('subtitle').value=S.subtitle; render(); });
 
 $('addDateBtn').addEventListener('click',function(){
   pushHistory();
@@ -367,9 +401,10 @@ $('addSubtitleBtn').addEventListener('click',function(){
 })();
 /* Plain always-expanded swatch list (not a collapsed trigger+menu combo,
    unlike the date's colour picker) — same hover-preview/click-to-commit
-   convention as every other colour control here. */
-(function initSubtitleColourList(){
-  const list=$('subColourList');
+   convention as every other colour control here. Instantiated twice: once
+   under Add subtitle, once again inside the Settings duplicate. */
+function initSubtitleColourList(listId){
+  const list=$(listId);
   list.innerHTML=PALETTE.map((c,i)=>
     '<button type="button" class="combo-item" data-i="'+i+'" style="display:flex;align-items:center;gap:7px;justify-content:flex-start">'+
       '<span class="swatch-dot" style="background:'+c.hex+'"></span>'+
@@ -392,7 +427,9 @@ $('addSubtitleBtn').addEventListener('click',function(){
     S.subColor=hex;
     render();
   });
-})();
+}
+initSubtitleColourList('subColourList');
+initSubtitleColourList('stSubColourList');
 
 $('dateMonth').innerHTML=MONTHS.map((m,i)=>'<option value="'+(i+1)+'">'+m+'</option>').join('');
 (function(){
@@ -824,7 +861,7 @@ function initToggleMenu(btnId,menuId,onOpen){
 }
 initToggleMenu('exportMenuBtn','exportMenu');
 initToggleMenu('textAppearanceBtn','textAppearanceMenu');
-initToggleMenu('settingsBtn','settingsMenu');
+initToggleMenu('settingsBtn','settingsMenu',function(){ renderStLoadList(); });
 
 /* Text appearance also carries its own copy of Clear overrides/Colour
    presets/Highlight all/Un-highlight all/Swap colours — same actions as the
@@ -853,10 +890,9 @@ initToggleMenu('settingsBtn','settingsMenu');
   });
 })();
 
-function renderLoadMenu(){
-  const menu=$('loadMenu');
+function savedRowsHTML(){
   const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const rows=layouts.length?layouts.slice().sort((a,b)=>b.at-a.at).map(function(l){
+  return layouts.length?layouts.slice().sort((a,b)=>b.at-a.at).map(function(l){
     const d=new Date(l.at);
     const when=d.getDate()+' '+months[d.getMonth()]+' '+d.getFullYear();
     return '<div class="saved-row">'+
@@ -864,11 +900,19 @@ function renderLoadMenu(){
       '<button class="name" data-load="'+l.id+'">'+esc(l.name)+'<br><span class="meta">'+when+(l.id===currentSaveId?' · open':'')+'</span></button>'+
       '<button class="del" data-del="'+l.id+'" aria-label="Delete">&times;</button></div>';
   }).join(''):'<p class="hint" style="margin:0;padding:4px 6px">Nothing saved yet.</p>';
-  menu.innerHTML=rows+'<hr>'+
+}
+function renderLoadMenu(){
+  $('loadMenu').innerHTML=savedRowsHTML()+'<hr>'+
     '<button type="button" id="exportJsonBtn">Export .json</button>'+
     '<button type="button" id="importJsonBtn">Import .json</button>';
 }
 initToggleMenu('loadBtn','loadMenu',renderLoadMenu);
+/* Settings' duplicate of the same Saved list — just the rows, since it has
+   its own dedicated Export/Import .json buttons already in the static
+   markup rather than appended here. */
+function renderStLoadList(){
+  $('stLoadList').innerHTML=savedRowsHTML();
+}
 
 function loadObj(obj){
   S=Object.assign(defaultState(),obj);
@@ -884,6 +928,7 @@ function commitSave(entry,replaceId){
     currentSaveId=entry.id;
     dirty=false;
     $('layoutName').value=entry.name;
+    $('stLayoutName').value=entry.name;
     flash((replaceId?'Updated "':'Saved "')+entry.name+'".');
   } else {
     layouts=prev;
@@ -891,28 +936,35 @@ function commitSave(entry,replaceId){
   }
 }
 /* Same nuanced conflict detection as before (same-name/renamed/collides
-   with a different saved layout), just presented as a dropdown under the
-   Save button instead of a centered modal — and skipped entirely when
-   there's no conflict, straight to commitSave. */
-$('saveBtn').addEventListener('click',function(e){
-  e.stopPropagation();
-  const typed=($('layoutName').value||'').trim()||'Untitled';
+   with a different saved layout) — the header's Save presents it as a
+   dropdown under the button, skipped entirely (straight to commitSave) when
+   there's no conflict; Settings' duplicate reuses the exact same detection
+   but through the centered modal instead, since nesting one floating menu
+   inside another (Settings' own dropdown) gets awkward fast. */
+function computeSaveActions(typed){
   const current=layouts.find(l=>l.id===currentSaveId);
   const byName=layouts.find(l=>l.name===typed&&l.id!==currentSaveId);
-  let actions=null;
   if(current&&current.name===typed){
-    actions=[
+    return [
       {label:'Update "'+current.name+'"',fn:()=>commitSave(snapshotLayout(current.id,typed),current.id)},
       {label:'Save as a new layout',fn:()=>commitSave(snapshotLayout(uid(),uniqueLayoutName(typed)))}];
-  }else if(current){
-    actions=[
+  }
+  if(current){
+    return [
       {label:'Rename and update it',fn:()=>commitSave(snapshotLayout(current.id,uniqueLayoutName(typed)),current.id)},
       {label:'Save as a new layout',fn:()=>commitSave(snapshotLayout(uid(),uniqueLayoutName(typed)))}];
-  }else if(byName){
-    actions=[
+  }
+  if(byName){
+    return [
       {label:'Overwrite it',fn:()=>commitSave(snapshotLayout(byName.id,typed),byName.id)},
       {label:'Save as "'+uniqueLayoutName(typed)+'"',fn:()=>commitSave(snapshotLayout(uid(),uniqueLayoutName(typed)))}];
   }
+  return null;
+}
+$('saveBtn').addEventListener('click',function(e){
+  e.stopPropagation();
+  const typed=($('layoutName').value||'').trim()||'Untitled';
+  const actions=computeSaveActions(typed);
   if(!actions){ commitSave(snapshotLayout(uid(),typed)); return; }
   const menu=$('saveMenu');
   menu.innerHTML=actions.map((a,i)=>'<button type="button" data-i="'+i+'">'+esc(a.label)+'</button>').join('')+
@@ -925,6 +977,13 @@ $('saveMenu').addEventListener('click',function(e){
   const actions=this.__actions;
   closeAllMenus();
   if(b.dataset.i!=='cancel'&&actions) actions[+b.dataset.i].fn();
+});
+$('stSaveBtn').addEventListener('click',function(){
+  const typed=($('stLayoutName').value||'').trim()||'Untitled';
+  const actions=computeSaveActions(typed);
+  if(!actions){ commitSave(snapshotLayout(uid(),typed)); closeAllMenus(); return; }
+  closeAllMenus();
+  openModal('Save',null,actions.concat([{label:'Cancel'}]));
 });
 
 function guardUnsaved(what,next){
@@ -941,22 +1000,21 @@ function loadLayout(id){
     currentSaveId=l.id;
     dirty=false;
     $('layoutName').value=l.name;
+    $('stLayoutName').value=l.name;
     syncInputs(); render();
     flash('Loaded "'+l.name+'".');
   });
 }
-$('loadMenu').addEventListener('click',function(e){
+function exportJson(){
+  const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.download='hubot-layout.json'; a.href=URL.createObjectURL(blob); a.click();
+  URL.revokeObjectURL(a.href);
+  dirty=false;
+  closeAllMenus();
+}
+function handleSavedRowClick(e){
   const b=e.target.closest('button'); if(!b) return;
-  if(b.id==='exportJsonBtn'){
-    const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
-    const a=document.createElement('a');
-    a.download='hubot-layout.json'; a.href=URL.createObjectURL(blob); a.click();
-    URL.revokeObjectURL(a.href);
-    dirty=false;
-    closeAllMenus();
-    return;
-  }
-  if(b.id==='importJsonBtn'){ $('importJsonFile').click(); return; }
   if(b.dataset.load){ closeAllMenus(); loadLayout(b.dataset.load); }
   if(b.dataset.del){
     const l=layouts.find(l=>l.id===b.dataset.del);
@@ -968,7 +1026,16 @@ $('loadMenu').addEventListener('click',function(e){
         saveLayoutsList(layouts);
       }},{label:'Cancel'}]);
   }
+}
+$('loadMenu').addEventListener('click',function(e){
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.id==='exportJsonBtn'){ exportJson(); return; }
+  if(b.id==='importJsonBtn'){ $('importJsonFile').click(); return; }
+  handleSavedRowClick(e);
 });
+$('stLoadList').addEventListener('click',handleSavedRowClick);
+$('stExportJsonBtn').addEventListener('click',exportJson);
+$('stImportJsonBtn').addEventListener('click',function(){ $('importJsonFile').click(); });
 $('importJsonFile').addEventListener('change',function(){
   const f=this.files[0]; if(!f) return;
   const reader=new FileReader();
@@ -1031,13 +1098,19 @@ function matchPresetLabel(font,pad){
 }
 function syncInputs(){
   $('text').value=S.text;
+  $('stText').value=S.text;
   $('subtitle').value=S.subtitle;
+  $('stSubtitle').value=S.subtitle;
   $('addDateBtn').classList.toggle('active',S.dateOn);
   $('addSubtitleBtn').classList.toggle('active',S.subtitleOn);
   datePresetCombo.refresh();
+  stTitlePresetCombo.refresh();
   $('dateMonth').value=S.dateMonth; $('dateYear').value=S.dateYear;
   document.querySelectorAll('[data-size]').forEach(function(btn){
     btn.classList.toggle('active',+btn.dataset.size===S.fontSize);
+  });
+  document.querySelectorAll('[data-scale]').forEach(function(btn){
+    btn.classList.toggle('active',+btn.dataset.scale===S.exportScale);
   });
   setZoom(S.zoom);
 }
@@ -1328,8 +1401,10 @@ function render(){
      inside a 'focus'/'blur' listener) means the very first render right
      after a click already shows the caret in the right place, instead of
      lagging one extra render behind while that listener's own state catches up. */
-  const caretTarget=(document.activeElement===$('text'))
-    ?offsetToWordPosition(S.text,$('text').selectionStart):null;
+  const activeTextField=(document.activeElement===$('text'))?$('text')
+    :(document.activeElement===$('stText'))?$('stText'):null;
+  const caretTarget=activeTextField
+    ?offsetToWordPosition(S.text,activeTextField.selectionStart):null;
   visualLines.forEach(function(line,i){
     const baseline=firstBaseline+i*pitch;
     const delta=targetLeft-lineBox[i].x;
@@ -1463,7 +1538,9 @@ function render(){
      charIndexInWord does for title words — one hit-rect per line is enough
      since there's no per-word state to key here), right-click opens its
      colour-preset combo. A fake caret is drawn the same way as the title's. */
-  const subCaretOffset=(document.activeElement===$('subtitle'))?$('subtitle').selectionStart:null;
+  const activeSubField=(document.activeElement===$('subtitle'))?$('subtitle')
+    :(document.activeElement===$('stSubtitle'))?$('stSubtitle'):null;
+  const subCaretOffset=activeSubField?activeSubField.selectionStart:null;
   if(subLines.length){
     let sy=frameY-subGapPx-subM.desc;
     for(let i=subLines.length-1;i>=0;i--){
@@ -1729,6 +1806,7 @@ async function exportPNG(scale,btn){
 }
 $('exportPng1Btn').addEventListener('click',function(){ closeAllMenus(); exportPNG(1,this); });
 $('exportPng2Btn').addEventListener('click',function(){ closeAllMenus(); exportPNG(2,this); });
+$('stExportBtn').addEventListener('click',function(){ closeAllMenus(); exportPNG(clamp(S.exportScale||2,1,2),this); });
 
 /* The font now lives in its own file (hubot-sans.ttf) instead of being
    inlined as page-context base64 — fetched once and cached, since both the
@@ -1809,9 +1887,9 @@ async function buildOutlinePaths(){
   return groups;
 }
 
-$('exportSvgBtn').addEventListener('click',async function(){
+async function exportSVG(btn){
   closeAllMenus();
-  const btn=this; btn.disabled=true; flash('Preparing export…');
+  btn.disabled=true; flash('Preparing export…');
   try{
     const built=await buildExportSVG();
     const svg=built.svg, bbox=built.bbox;
@@ -1849,7 +1927,9 @@ $('exportSvgBtn').addEventListener('click',async function(){
     btn.disabled=false;
     flash('Export failed — '+e.message);
   }
-});
+}
+$('exportSvgBtn').addEventListener('click',function(){ exportSVG(this); });
+$('stExportSvgBtn').addEventListener('click',function(){ exportSVG(this); });
 
 /* ---------- boot ---------- */
 function measureHeader(){
