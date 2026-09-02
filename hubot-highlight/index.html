@@ -64,7 +64,23 @@
         </div>
       </div>
     </div>
-    <button type="button" id="addDateBtn">Add date</button>
+    <div class="menu-anchor up" id="addDateAnchor">
+      <button type="button" id="addDateBtn">Add date</button>
+      <div class="ctx-menu closed" id="addDateMenu" style="min-width:220px">
+        <span class="lbl" style="padding:4px 6px 0">Month &amp; year</span>
+        <div class="field" style="padding:4px 6px 8px">
+          <div class="row">
+            <select id="dateMonth" style="flex:1"></select>
+            <select id="dateYear" style="flex:1"></select>
+          </div>
+        </div>
+        <hr>
+        <button type="button" data-a="matchTitle">Match title colours</button>
+        <button type="button" data-a="presets">Colour presets <span class="ctx-caret">&#9656;</span></button>
+        <hr>
+        <button type="button" data-a="swap">Swap colours</button>
+      </div>
+    </div>
     <div class="menu-anchor up" id="textAppearanceAnchor">
       <button type="button" id="textAppearanceBtn">Text appearance</button>
       <div class="ctx-menu closed" id="textAppearanceMenu" style="min-width:280px">
@@ -116,28 +132,20 @@ Project Wrap-up</textarea>
       <div class="field">
         <label>Month / year</label>
         <div class="row">
-          <select id="dateMonth" style="flex:1"></select>
-          <select id="dateYear" style="flex:1"></select>
+          <select id="stDateMonth" style="flex:1"></select>
+          <select id="stDateYear" style="flex:1"></select>
         </div>
       </div>
-      <div class="field">
-        <label>Date colour</label>
-        <div class="combo" id="datePresetCombo">
-          <button type="button" class="combo-trigger" id="datePresetTrigger">
-            <span class="swatch-dot"></span>
-            <span class="combo-label">Custom</span>
-            <span class="combo-caret">&#9662;</span>
-          </button>
-          <div class="combo-menu" id="datePresetMenu" hidden></div>
-        </div>
-      </div>
-      <div style="padding:0 6px 6px"><button id="dateSwapBtn">&#8646; Swap date colours</button></div>
+      <button type="button" data-a="matchTitle">Match title colours</button>
+      <button type="button" data-a="presets">Colour presets <span class="ctx-caret">&#9656;</span></button>
+      <hr>
+      <button type="button" data-a="swap">Swap colours</button>
       <hr>
       <span class="lbl" style="padding:4px 6px 0">Type</span>
       <div class="btn-row" style="padding:4px 6px 8px">
-        <button data-size="150">150px</button>
-        <button data-size="100">100px</button>
-        <button data-size="50">50px</button>
+        <button data-size="150">H1</button>
+        <button data-size="100">H2</button>
+        <button data-size="50">H3</button>
       </div>
       <hr>
       <span class="lbl" style="padding:4px 6px 0">Colour presets</span>

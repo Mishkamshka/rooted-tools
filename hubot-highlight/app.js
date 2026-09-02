@@ -181,12 +181,6 @@ $('stDeselectAllBtn').addEventListener('click',function(){ unhighlightAllWords()
 $('stColorSwapBtn').addEventListener('click',function(){ swapTitleColours(); closeAllMenus(); });
 $('stClearOverridesBtn').addEventListener('click',function(){ clearAllOverrides(); closeAllMenus(); });
 
-$('dateSwapBtn').addEventListener('click',function(){
-  pushHistory();
-  const t=S.dateColor; S.dateColor=S.datePadColor; S.datePadColor=t;
-  syncInputs(); render();
-});
-
 /* A popover-style preset picker: hovering an option previews it live on the
    canvas and in the raw colour pickers; moving off without clicking reverts;
    clicking locks it in as one undo step (snapshotting the true pre-open
@@ -332,9 +326,6 @@ function initColorCombo(triggerId,menuId,list,getState,setState){
   return {refresh:refresh};
 }
 
-const datePresetCombo=initPresetCombo('datePresetTrigger','datePresetMenu',
-  ()=>({font:S.dateColor,pad:S.datePadColor}),
-  (v)=>{ S.dateColor=v.font; S.datePadColor=v.pad; });
 /* Settings' duplicate of the old "Colour presets" panel — same collapsed
    trigger+dropdown style that panel used, unlike the board/Text-appearance
    menus' always-expanded flat list. */
@@ -381,28 +372,42 @@ $('addSubtitleBtn').addEventListener('click',function(){
   S.subtitleOn=!S.subtitleOn;
   syncInputs(); render();
 });
-/* Add subtitle opens its panel on hover, not click — click is reserved for
-   the on/off toggle above, so the two are independent: hovering to peek at
-   or edit the subtitle colour/text doesn't require it to be switched on
-   first, and toggling it on/off doesn't open or close the panel. A short
-   close delay survives the mouse crossing the small gap from the button to
-   the panel without flickering shut. */
-(function initAddSubtitleHover(){
-  const anchor=$('addSubtitleAnchor'), menu=$('addSubtitleMenu');
+/* Add subtitle and Add date both open their panel on hover, not click —
+   click is reserved for the on/off toggle, so the two are independent:
+   hovering to peek at or edit the colour/text/month/year doesn't require
+   it to be switched on first, and toggling it on/off doesn't open or close
+   the panel. A short close delay survives the mouse crossing the small gap
+   from the button to the panel without flickering shut. */
+/* Returns cancelClose/scheduleClose so a colour-preset flyout opened from
+   inside this panel (a sibling in <body>, not a DOM descendant of the
+   anchor) can borrow the same open/close timer — otherwise moving the
+   mouse off the anchor and into the flyout reads as "left the panel" and
+   closes it out from under the flyout. */
+function initHoverPanel(anchorId,menuId){
+  const anchor=$(anchorId), menu=$(menuId);
   let closeT=null;
+  function cancelClose(){ clearTimeout(closeT); }
+  function scheduleClose(){
+    cancelClose();
+    /* also drops any colour-preset flyout still open from this panel —
+       once the panel itself is gone that submenu would otherwise be left
+       floating with nothing left to anchor it (its own mouseenter/leave
+       only defer this same timer, they don't close it independently) */
+    closeT=setTimeout(function(){ menu.classList.add('closed'); closeColorSubmenu(); },150);
+  }
   anchor.addEventListener('mouseenter',function(){
-    clearTimeout(closeT);
+    cancelClose();
     menu.classList.remove('closed');
   });
-  anchor.addEventListener('mouseleave',function(){
-    clearTimeout(closeT);
-    closeT=setTimeout(function(){ menu.classList.add('closed'); },150);
-  });
-})();
-/* Plain always-expanded swatch list (not a collapsed trigger+menu combo,
-   unlike the date's colour picker) — same hover-preview/click-to-commit
-   convention as every other colour control here. Instantiated twice: once
-   under Add subtitle, once again inside the Settings duplicate. */
+  anchor.addEventListener('mouseleave',scheduleClose);
+  return {cancelClose:cancelClose,scheduleClose:scheduleClose};
+}
+initHoverPanel('addSubtitleAnchor','addSubtitleMenu');
+const addDateHover=initHoverPanel('addDateAnchor','addDateMenu');
+/* Plain always-expanded swatch list (not a collapsed trigger+menu combo) —
+   same hover-preview/click-to-commit convention as every other colour
+   control here. Instantiated twice: once under Add subtitle, once again
+   inside the Settings duplicate. */
 function initSubtitleColourList(listId){
   const list=$(listId);
   list.innerHTML=PALETTE.map((c,i)=>
@@ -431,14 +436,17 @@ function initSubtitleColourList(listId){
 initSubtitleColourList('subColourList');
 initSubtitleColourList('stSubColourList');
 
-$('dateMonth').innerHTML=MONTHS.map((m,i)=>'<option value="'+(i+1)+'">'+m+'</option>').join('');
-(function(){
-  let opts='';
-  for(let y=YEAR_MIN;y<=YEAR_MAX;y++) opts+='<option value="'+y+'">'+y+'</option>';
-  $('dateYear').innerHTML=opts;
-})();
-$('dateMonth').addEventListener('change',function(){ pushHistory(); S.dateMonth=+this.value; render(); });
-$('dateYear').addEventListener('change',function(){ pushHistory(); S.dateYear=+this.value; render(); });
+const monthOptionsHTML=MONTHS.map((m,i)=>'<option value="'+(i+1)+'">'+m+'</option>').join('');
+let yearOptionsHTML='';
+for(let y=YEAR_MIN;y<=YEAR_MAX;y++) yearOptionsHTML+='<option value="'+y+'">'+y+'</option>';
+$('dateMonth').innerHTML=monthOptionsHTML;
+$('dateYear').innerHTML=yearOptionsHTML;
+$('stDateMonth').innerHTML=monthOptionsHTML;
+$('stDateYear').innerHTML=yearOptionsHTML;
+$('dateMonth').addEventListener('change',function(){ pushHistory(); S.dateMonth=+this.value; $('stDateMonth').value=S.dateMonth; render(); });
+$('dateYear').addEventListener('change',function(){ pushHistory(); S.dateYear=+this.value; $('stDateYear').value=S.dateYear; render(); });
+$('stDateMonth').addEventListener('change',function(){ pushHistory(); S.dateMonth=+this.value; $('dateMonth').value=S.dateMonth; render(); });
+$('stDateYear').addEventListener('change',function(){ pushHistory(); S.dateYear=+this.value; $('dateYear').value=S.dateYear; render(); });
 
 /* The right-click word popover: hovering a preset previews it live on the
    canvas (same pattern as the panel colour combos); moving off without
@@ -632,7 +640,14 @@ document.addEventListener('click',function(e){
 document.addEventListener('keydown',function(e){
   if(activeColorSubmenu&&e.key==='Escape') closeColorSubmenu();
 });
-function openColorPresetSubmenu(anchorBtn,onCommit){
+/* getState/setState let this same submenu serve either the title's colours
+   (S.fontColor/S.padColor) or the date's (S.dateColor/S.datePadColor) —
+   whichever the caller passes in. hoverController (optional) is the opening
+   panel's own cancelClose/scheduleClose (see initHoverPanel) — needed only
+   when that panel is hover-triggered, so moving the mouse into this
+   submenu (a sibling in <body>, not a descendant of the panel) doesn't read
+   as having left it. */
+function openColorPresetSubmenu(anchorBtn,getState,setState,onCommit,hoverController){
   closeColorSubmenu();
   const r=anchorBtn.getBoundingClientRect();
   const el=document.createElement('div');
@@ -640,16 +655,26 @@ function openColorPresetSubmenu(anchorBtn,onCommit){
   let left=r.right+4;
   if(left+190>window.innerWidth) left=r.left-190-4;
   el.style.left=Math.max(4,left)+'px';
-  el.style.top=Math.min(r.top,window.innerHeight-220)+'px';
+  /* aligned to the parent menu's own bottom edge ("baseline") — the edge
+     grounded against the trigger button — rather than the hovered button's
+     own position, so the two menus read as sitting on one shared line
+     regardless of which item within the parent was hovered. */
+  const parentMenu=anchorBtn.closest('.ctx-menu')||anchorBtn.parentElement;
+  const pr=parentMenu.getBoundingClientRect();
+  el.style.bottom=Math.max(4,window.innerHeight-pr.bottom)+'px';
   el.innerHTML=PRESETS.map((p,i)=>
     '<button type="button" data-i="'+i+'" style="display:flex;align-items:center;gap:7px;justify-content:flex-start">'+
       '<span style="width:14px;height:14px;background:'+twoTone(p.pad,p.font)+';border:1px solid var(--rule);flex:none"></span>'+
       '<span class="name">'+p.name+'</span></button>').join('');
   document.body.appendChild(el);
+  if(hoverController){
+    el.addEventListener('mouseenter',hoverController.cancelClose);
+    el.addEventListener('mouseleave',hoverController.scheduleClose);
+  }
 
-  const original={font:S.fontColor,pad:S.padColor};
-  function preview(p){ S.fontColor=p.font; S.padColor=p.pad; render(); }
-  function revert(){ S.fontColor=original.font; S.padColor=original.pad; render(); }
+  const original=getState();
+  function preview(p){ setState({font:p.font,pad:p.pad}); render(); }
+  function revert(){ setState(original); render(); }
   el.addEventListener('mouseover',function(e){
     const b=e.target.closest('button'); if(!b) return;
     preview(PRESETS[+b.dataset.i]);
@@ -660,7 +685,7 @@ function openColorPresetSubmenu(anchorBtn,onCommit){
     revert();
     pushHistory();
     const p=PRESETS[+b.dataset.i];
-    S.fontColor=p.font; S.padColor=p.pad;
+    setState({font:p.font,pad:p.pad});
     syncInputs(); render();
     closeColorSubmenu();
     if(onCommit) onCommit();
@@ -670,34 +695,43 @@ function openColorPresetSubmenu(anchorBtn,onCommit){
 
 /* "Swap colours" previews live on hover, same convention as every other
    colour control in this app — moving off without clicking reverts it,
-   clicking locks it in as one undo step. Also shared between the board menu
-   and the Text appearance dropdown, each with its own independent hover
-   session (its own swapOriginal closure). */
-function makeSwapHover(){
+   clicking locks it in as one undo step. Shared between the board menu, the
+   Text appearance dropdown, and (via getState/setState) the date's own
+   colour controls — each with its own independent hover session (its own
+   swapOriginal closure). */
+function makeSwapHover(getState,setState){
   let swapOriginal=null;
   function previewSwap(){
     if(swapOriginal) return;
-    swapOriginal={font:S.fontColor,pad:S.padColor};
-    S.fontColor=swapOriginal.pad; S.padColor=swapOriginal.font;
+    swapOriginal=getState();
+    setState({font:swapOriginal.pad,pad:swapOriginal.font});
     render();
   }
   function revertSwap(){
     if(!swapOriginal) return;
-    S.fontColor=swapOriginal.font; S.padColor=swapOriginal.pad;
+    setState(swapOriginal);
     render();
     swapOriginal=null;
   }
   function commitSwap(){
     if(!swapOriginal) previewSwap();
     const orig=swapOriginal;
-    S.fontColor=orig.font; S.padColor=orig.pad;
+    setState(orig);
     pushHistory();
-    S.fontColor=orig.pad; S.padColor=orig.font;
+    setState({font:orig.pad,pad:orig.font});
     syncInputs(); render();
     swapOriginal=null;
   }
   return {previewSwap:previewSwap,revertSwap:revertSwap,commitSwap:commitSwap};
 }
+const titleColourState={
+  get:()=>({font:S.fontColor,pad:S.padColor}),
+  set:(v)=>{ S.fontColor=v.font; S.padColor=v.pad; }
+};
+const dateColourState={
+  get:()=>({font:S.dateColor,pad:S.datePadColor}),
+  set:(v)=>{ S.dateColor=v.font; S.datePadColor=v.pad; }
+};
 
 function closeBoardMenu(){
   closeColorSubmenu();
@@ -730,10 +764,10 @@ function openBoardMenu(clientX,clientY){
     '<button type="button" data-a="swap">Swap colours</button>';
   document.body.appendChild(el);
 
-  const swap=makeSwapHover();
+  const swap=makeSwapHover(titleColourState.get,titleColourState.set);
   el.addEventListener('mouseover',function(e){
     const b=e.target.closest('button'); if(!b) return;
-    if(b.dataset.a==='presets'){ openColorPresetSubmenu(b,closeBoardMenu); swap.revertSwap(); }
+    if(b.dataset.a==='presets'){ openColorPresetSubmenu(b,titleColourState.get,titleColourState.set,closeBoardMenu); swap.revertSwap(); }
     else if(b.dataset.a==='swap'){ closeColorSubmenu(); swap.previewSwap(); }
     else{ closeColorSubmenu(); swap.revertSwap(); }
   });
@@ -869,10 +903,10 @@ initToggleMenu('settingsBtn','settingsMenu',function(){ renderStLoadList(); });
    submenu and swap-hover-preview logic with that menu (see openBoardMenu). */
 (function initTextAppearanceColourActions(){
   const menu=$('textAppearanceMenu');
-  const swap=makeSwapHover();
+  const swap=makeSwapHover(titleColourState.get,titleColourState.set);
   menu.addEventListener('mouseover',function(e){
     const b=e.target.closest('button[data-a]'); if(!b) return;
-    if(b.dataset.a==='presets'){ openColorPresetSubmenu(b,closeAllMenus); swap.revertSwap(); }
+    if(b.dataset.a==='presets'){ openColorPresetSubmenu(b,titleColourState.get,titleColourState.set,closeAllMenus); swap.revertSwap(); }
     else if(b.dataset.a==='swap'){ closeColorSubmenu(); swap.previewSwap(); }
     else{ closeColorSubmenu(); swap.revertSwap(); }
   });
@@ -889,6 +923,39 @@ initToggleMenu('settingsBtn','settingsMenu',function(){ renderStLoadList(); });
     closeAllMenus();
   });
 })();
+
+/* The date's own colour controls — Match title colours / Colour presets
+   (flyout) / Swap colours — reused by both the Add date hover panel and
+   Settings' duplicate. onAction runs after any of the three commits, so
+   each caller can decide what "done" means for its own menu style (the
+   hover panel just lets it be, closing naturally on mouseleave; Settings
+   closes itself like its other action buttons do). */
+function initDateColourActions(menuId,onAction,hoverController){
+  const menu=$(menuId);
+  const swap=makeSwapHover(dateColourState.get,dateColourState.set);
+  menu.addEventListener('mouseover',function(e){
+    const b=e.target.closest('button[data-a]'); if(!b) return;
+    if(b.dataset.a==='presets'){ openColorPresetSubmenu(b,dateColourState.get,dateColourState.set,onAction,hoverController); swap.revertSwap(); }
+    else if(b.dataset.a==='swap'){ closeColorSubmenu(); swap.previewSwap(); }
+    else{ closeColorSubmenu(); swap.revertSwap(); }
+  });
+  menu.addEventListener('mouseleave',function(){ swap.revertSwap(); });
+  menu.addEventListener('click',function(e){
+    const b=e.target.closest('button[data-a]'); if(!b) return;
+    switch(b.dataset.a){
+      case 'presets': return; /* the submenu handles its own clicks */
+      case 'matchTitle':
+        pushHistory();
+        S.dateColor=S.fontColor; S.datePadColor=S.padColor;
+        syncInputs(); render();
+        break;
+      case 'swap': swap.commitSwap(); break;
+    }
+    if(onAction) onAction();
+  });
+}
+initDateColourActions('addDateMenu',null,addDateHover);
+initDateColourActions('settingsMenu',closeAllMenus);
 
 function savedRowsHTML(){
   const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1103,9 +1170,9 @@ function syncInputs(){
   $('stSubtitle').value=S.subtitle;
   $('addDateBtn').classList.toggle('active',S.dateOn);
   $('addSubtitleBtn').classList.toggle('active',S.subtitleOn);
-  datePresetCombo.refresh();
   stTitlePresetCombo.refresh();
   $('dateMonth').value=S.dateMonth; $('dateYear').value=S.dateYear;
+  $('stDateMonth').value=S.dateMonth; $('stDateYear').value=S.dateYear;
   document.querySelectorAll('[data-size]').forEach(function(btn){
     btn.classList.toggle('active',+btn.dataset.size===S.fontSize);
   });
