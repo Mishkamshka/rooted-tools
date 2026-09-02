@@ -13,14 +13,21 @@
   h1{font-size:17px;font-weight:500;margin:0;letter-spacing:-.01em}
   .lbl{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-family:var(--mono)}
   #status{color:var(--select);min-height:12px;font-size:11px;font-family:var(--mono)}
-  .hdr-left{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .hdr-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .hdr-left button{width:auto;padding:6px 9px;font-size:11px}
   .hdr-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .hdr-tools button{width:auto;padding:6px 9px;font-size:11px}
+  .bottom-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    border-top:1px solid var(--ink);padding:14px 0;margin-top:18px;flex-wrap:wrap;
+    position:sticky;bottom:0;background:var(--paper);z-index:5}
+  .bottom-bar > div{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .bottom-bar button{width:auto;padding:6px 9px;font-size:11px}
   .zoomctl{display:flex;align-items:center;gap:0;border:1px solid var(--ink)}
   .zoomctl button{width:26px;padding:6px 0;border:none;border-right:1px solid var(--ink)}
   .zoomctl button:last-child{border-right:none;border-left:1px solid var(--ink)}
   .zoomctl span{width:48px;text-align:center;font-family:var(--mono);font-size:11px}
   .wrap{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap}
+  .wrap{margin-bottom:14px}
   .canvas{flex:1 1 640px;min-width:300px;position:sticky;top:calc(var(--hh,68px) + 18px);align-self:flex-start; height:100vh}
   /* the white here is the preview surface only — it is never part of the export */
   /* safe center (not plain center): plain center on an overflow:auto flex
@@ -31,7 +38,7 @@
      start-alignment only for the overflowing amount, so it's still centred
      whenever it fits, but nothing goes permanently out of reach. */
   .stage{background:var(--rule);border:1px solid var(--rule);display:flex;justify-content:safe center;align-items:safe center;padding:6px;overflow:auto; height:100dvh}
-  svg#board{width:100%;height:auto;max-height:calc(100vh - var(--hh,68px) - 40px);display:block;flex:none; overflow:visible; background-color: #fff;}
+  svg#board{width:100%;height:auto;max-height:calc(100vh - var(--hh,68px) - var(--fh,60px) - 40px);display:block;flex:none; overflow:visible; background-color: #fff;}
   aside{flex:0 1 280px;min-width:260px;columns:1;column-gap:14px}
   aside > *{break-inside:avoid;margin-bottom:14px}
   .panel{border:1px solid var(--rule);background:#fff;padding:14px}
@@ -87,6 +94,22 @@
   .ctx-menu button.active{background:var(--ink);color:#fff}
   .ctx-menu .ctx-caret{font-size:10px;opacity:.6}
   .ctx-menu hr{border:none;border-top:1px solid var(--rule);margin:4px 0;width:100%}
+  .menu-anchor{position:relative}
+  .menu-anchor > button{width:auto}
+  .menu-anchor .ctx-menu{position:absolute;left:0;top:calc(100% + 4px);z-index:56;max-height:70vh;overflow:auto}
+  .menu-anchor.up .ctx-menu{top:auto;bottom:calc(100% + 4px)}
+  .menu-anchor.right .ctx-menu{left:auto;right:0}
+  /* Closed state moves the panel off-screen instead of display:none — a
+     hidden/display:none field can never receive focus, and #text/#subtitle
+     live inside these panels but still need to be focusable (via canvas
+     click, to drop the text cursor) even while their panel is visually
+     closed. Off-screen keeps that working without the panel appearing. */
+  .menu-anchor .ctx-menu.closed{position:fixed;left:-99999px;top:-99999px;pointer-events:none}
+  .ctx-menu .btn-row button{width:auto;flex:1;border:1px solid var(--ink);justify-content:center}
+  .ctx-menu .combo-trigger{width:100%;border:1px solid var(--rule);justify-content:flex-start}
+  .ctx-menu .field{padding:0 6px 8px;margin-bottom:0}
+  .ctx-menu textarea{margin:0}
+  #subColourList{max-height:180px;overflow:auto;border:1px solid var(--rule)}
   .saved-row{display:flex;align-items:center;gap:8px;padding:5px 4px}
   .saved-row:hover{background:#F1EFE8}
   .saved-row .name{flex:1;text-align:left;border:none;background:none;font-family:inherit;

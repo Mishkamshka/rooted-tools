@@ -53,7 +53,7 @@ function defaultState(){
   const now=new Date();
   return {
     text:'Black Maternal Futures\nProject Wrap-up',
-    subtitle:'', subColor:'#4D1061',
+    subtitle:'', subColor:'#4D1061', subtitleOn:false,
     dateOn:false, dateColor:'#4D1061', datePadColor:'#A87BFE',
     dateMonth:now.getMonth()+1, dateYear:clamp(now.getFullYear(),YEAR_MIN,YEAR_MAX),
     frame:{x:null,y:null,width:null},
@@ -140,24 +140,32 @@ document.querySelectorAll('[data-size]').forEach(function(btn){
   });
 });
 
-document.querySelectorAll('[data-scale]').forEach(function(btn){
-  btn.addEventListener('click',function(){
-    S.exportScale=+btn.dataset.scale;
-    syncInputs();
-  });
-});
-
-
-$('colorSwapBtn').addEventListener('click',function(){
+/* Named so the board's right-click context menu can call them directly —
+   these used to be sidebar buttons the menu triggered via .click(), but the
+   redesign moved title colour presets/swap/clear entirely into that context
+   menu, so the buttons themselves no longer exist in the DOM. */
+function swapTitleColours(){
   pushHistory();
   const t=S.fontColor; S.fontColor=S.padColor; S.padColor=t;
   syncInputs(); render();
-});
-$('clearOverridesBtn').addEventListener('click',function(){
+}
+function clearAllOverrides(){
   pushHistory();
   S.wordColors={};
   render();
-});
+}
+function highlightAllWords(){
+  pushHistory();
+  allWords().forEach(w=>{ delete S.off[w.gidx]; });
+  render();
+}
+function unhighlightAllWords(){
+  pushHistory();
+  allWords().forEach(w=>{ S.off[w.gidx]=1; });
+  S.wordColors={};
+  render();
+}
+
 $('dateSwapBtn').addEventListener('click',function(){
   pushHistory();
   const t=S.dateColor; S.dateColor=S.datePadColor; S.datePadColor=t;
@@ -309,12 +317,6 @@ function initColorCombo(triggerId,menuId,list,getState,setState){
   return {refresh:refresh};
 }
 
-const titlePresetCombo=initPresetCombo('titlePresetTrigger','titlePresetMenu',
-  ()=>({font:S.fontColor,pad:S.padColor}),
-  (v)=>{ S.fontColor=v.font; S.padColor=v.pad; });
-const subPresetCombo=initColorCombo('subPresetTrigger','subPresetMenu',PALETTE,
-  ()=>S.subColor,
-  (hex)=>{ S.subColor=hex; });
 const datePresetCombo=initPresetCombo('datePresetTrigger','datePresetMenu',
   ()=>({font:S.dateColor,pad:S.datePadColor}),
   (v)=>{ S.dateColor=v.font; S.datePadColor=v.pad; });
@@ -335,11 +337,62 @@ $('text').addEventListener('keyup',function(){ render(); });
 $('text').addEventListener('click',function(){ render(); });
 $('subtitle').addEventListener('input',function(){ pushHistoryCoalesced(); S.subtitle=$('subtitle').value; render(); });
 
-$('dateToggle').addEventListener('click',function(){
+$('addDateBtn').addEventListener('click',function(){
   pushHistory();
   S.dateOn=!S.dateOn;
   syncInputs(); render();
 });
+$('addSubtitleBtn').addEventListener('click',function(){
+  pushHistory();
+  S.subtitleOn=!S.subtitleOn;
+  syncInputs(); render();
+});
+/* Add subtitle opens its panel on hover, not click — click is reserved for
+   the on/off toggle above, so the two are independent: hovering to peek at
+   or edit the subtitle colour/text doesn't require it to be switched on
+   first, and toggling it on/off doesn't open or close the panel. A short
+   close delay survives the mouse crossing the small gap from the button to
+   the panel without flickering shut. */
+(function initAddSubtitleHover(){
+  const anchor=$('addSubtitleAnchor'), menu=$('addSubtitleMenu');
+  let closeT=null;
+  anchor.addEventListener('mouseenter',function(){
+    clearTimeout(closeT);
+    menu.classList.remove('closed');
+  });
+  anchor.addEventListener('mouseleave',function(){
+    clearTimeout(closeT);
+    closeT=setTimeout(function(){ menu.classList.add('closed'); },150);
+  });
+})();
+/* Plain always-expanded swatch list (not a collapsed trigger+menu combo,
+   unlike the date's colour picker) — same hover-preview/click-to-commit
+   convention as every other colour control here. */
+(function initSubtitleColourList(){
+  const list=$('subColourList');
+  list.innerHTML=PALETTE.map((c,i)=>
+    '<button type="button" class="combo-item" data-i="'+i+'" style="display:flex;align-items:center;gap:7px;justify-content:flex-start">'+
+      '<span class="swatch-dot" style="background:'+c.hex+'"></span>'+
+      '<span class="name">'+c.name+'</span></button>').join('');
+  let original=null;
+  list.addEventListener('mouseover',function(e){
+    const b=e.target.closest('button'); if(!b) return;
+    if(original==null) original=S.subColor;
+    S.subColor=PALETTE[+b.dataset.i].hex; render();
+  });
+  list.addEventListener('mouseleave',function(){
+    if(original==null) return;
+    S.subColor=original; original=null; render();
+  });
+  list.addEventListener('click',function(e){
+    const b=e.target.closest('button'); if(!b) return;
+    const hex=PALETTE[+b.dataset.i].hex;
+    if(original!=null){ S.subColor=original; original=null; }
+    pushHistory();
+    S.subColor=hex;
+    render();
+  });
+})();
 
 $('dateMonth').innerHTML=MONTHS.map((m,i)=>'<option value="'+(i+1)+'">'+m+'</option>').join('');
 (function(){
@@ -349,18 +402,6 @@ $('dateMonth').innerHTML=MONTHS.map((m,i)=>'<option value="'+(i+1)+'">'+m+'</opt
 })();
 $('dateMonth').addEventListener('change',function(){ pushHistory(); S.dateMonth=+this.value; render(); });
 $('dateYear').addEventListener('change',function(){ pushHistory(); S.dateYear=+this.value; render(); });
-
-$('selectAllBtn').addEventListener('click',function(){
-  pushHistory();
-  allWords().forEach(w=>{ delete S.off[w.gidx]; });
-  render();
-});
-$('deselectAllBtn').addEventListener('click',function(){
-  pushHistory();
-  allWords().forEach(w=>{ S.off[w.gidx]=1; });
-  S.wordColors={};
-  render();
-});
 
 /* The right-click word popover: hovering a preset previews it live on the
    canvas (same pattern as the panel colour combos); moving off without
@@ -534,29 +575,28 @@ function openDatePopover(clientX,clientY){
    flyout beside this one rather than replacing it, Figma-style, so picking a
    preset doesn't cost a trip back through the first menu. */
 let activeBoardMenu=null; /* {el} */
-let activeBoardSubmenu=null; /* {el} */
-function closeBoardSubmenu(){
-  if(!activeBoardSubmenu) return;
-  activeBoardSubmenu.el.remove();
-  activeBoardSubmenu=null;
-}
-function closeBoardMenu(){
-  closeBoardSubmenu();
-  if(!activeBoardMenu) return;
-  activeBoardMenu.revertSwap();
-  activeBoardMenu.el.remove();
-  activeBoardMenu=null;
+
+/* Colour-preset flyout submenu: reused by both the board's right-click menu
+   and the Text appearance dropdown's "Colour presets" item (the same action
+   is reachable from either place), so it manages its own lifetime rather
+   than being owned by whichever menu happened to open it — closes itself on
+   an outside click/Escape, and the caller passes onCommit for whatever else
+   needs to happen (closing the parent menu) after a preset is picked. */
+let activeColorSubmenu=null; /* {el} */
+function closeColorSubmenu(){
+  if(!activeColorSubmenu) return;
+  activeColorSubmenu.el.remove();
+  activeColorSubmenu=null;
 }
 document.addEventListener('click',function(e){
-  if(activeBoardMenu&&!activeBoardMenu.el.contains(e.target)&&
-     !(activeBoardSubmenu&&activeBoardSubmenu.el.contains(e.target))) closeBoardMenu();
+  if(activeColorSubmenu&&!activeColorSubmenu.el.contains(e.target)&&!e.target.closest('[data-a="presets"]'))
+    closeColorSubmenu();
 });
 document.addEventListener('keydown',function(e){
-  if(activeBoardMenu&&e.key==='Escape') closeBoardMenu();
+  if(activeColorSubmenu&&e.key==='Escape') closeColorSubmenu();
 });
-
-function openColorPresetSubmenu(anchorBtn){
-  closeBoardSubmenu();
+function openColorPresetSubmenu(anchorBtn,onCommit){
+  closeColorSubmenu();
   const r=anchorBtn.getBoundingClientRect();
   const el=document.createElement('div');
   el.className='popover';
@@ -585,30 +625,18 @@ function openColorPresetSubmenu(anchorBtn){
     const p=PRESETS[+b.dataset.i];
     S.fontColor=p.font; S.padColor=p.pad;
     syncInputs(); render();
-    closeBoardMenu();
+    closeColorSubmenu();
+    if(onCommit) onCommit();
   });
-  activeBoardSubmenu={el:el};
+  activeColorSubmenu={el:el};
 }
 
-function openBoardMenu(clientX,clientY){
-  closeBoardMenu();
-  const el=document.createElement('div');
-  el.className='ctx-menu';
-  el.style.left=Math.min(clientX,window.innerWidth-200)+'px';
-  el.style.top=Math.min(clientY,window.innerHeight-220)+'px';
-  el.innerHTML=
-    '<button type="button" data-a="clear">Clear overrides</button>'+
-    '<button type="button" data-a="presets">Colour presets <span class="ctx-caret">&#9656;</span></button>'+
-    '<hr>'+
-    '<button type="button" data-a="selectAll">Highlight all</button>'+
-    '<button type="button" data-a="deselectAll">Unhighlight all</button>'+
-    '<hr>'+
-    '<button type="button" data-a="swap">Swap colours</button>';
-  document.body.appendChild(el);
-
-  /* "Swap colours" previews live on hover, same convention as every other
-     colour control in this app — moving off without clicking reverts it,
-     clicking locks it in as one undo step. */
+/* "Swap colours" previews live on hover, same convention as every other
+   colour control in this app — moving off without clicking reverts it,
+   clicking locks it in as one undo step. Also shared between the board menu
+   and the Text appearance dropdown, each with its own independent hover
+   session (its own swapOriginal closure). */
+function makeSwapHover(){
   let swapOriginal=null;
   function previewSwap(){
     if(swapOriginal) return;
@@ -631,27 +659,61 @@ function openBoardMenu(clientX,clientY){
     syncInputs(); render();
     swapOriginal=null;
   }
+  return {previewSwap:previewSwap,revertSwap:revertSwap,commitSwap:commitSwap};
+}
 
+function closeBoardMenu(){
+  closeColorSubmenu();
+  if(!activeBoardMenu) return;
+  activeBoardMenu.revertSwap();
+  activeBoardMenu.el.remove();
+  activeBoardMenu=null;
+}
+document.addEventListener('click',function(e){
+  if(activeBoardMenu&&!activeBoardMenu.el.contains(e.target)&&
+     !(activeColorSubmenu&&activeColorSubmenu.el.contains(e.target))) closeBoardMenu();
+});
+document.addEventListener('keydown',function(e){
+  if(activeBoardMenu&&e.key==='Escape') closeBoardMenu();
+});
+
+function openBoardMenu(clientX,clientY){
+  closeBoardMenu();
+  const el=document.createElement('div');
+  el.className='ctx-menu';
+  el.style.left=Math.min(clientX,window.innerWidth-200)+'px';
+  el.style.top=Math.min(clientY,window.innerHeight-220)+'px';
+  el.innerHTML=
+    '<button type="button" data-a="clear">Clear overrides</button>'+
+    '<button type="button" data-a="presets">Colour presets <span class="ctx-caret">&#9656;</span></button>'+
+    '<hr>'+
+    '<button type="button" data-a="selectAll">Highlight all</button>'+
+    '<button type="button" data-a="deselectAll">Un-highlight all</button>'+
+    '<hr>'+
+    '<button type="button" data-a="swap">Swap colours</button>';
+  document.body.appendChild(el);
+
+  const swap=makeSwapHover();
   el.addEventListener('mouseover',function(e){
     const b=e.target.closest('button'); if(!b) return;
-    if(b.dataset.a==='presets'){ openColorPresetSubmenu(b); revertSwap(); }
-    else if(b.dataset.a==='swap'){ closeBoardSubmenu(); previewSwap(); }
-    else{ closeBoardSubmenu(); revertSwap(); }
+    if(b.dataset.a==='presets'){ openColorPresetSubmenu(b,closeBoardMenu); swap.revertSwap(); }
+    else if(b.dataset.a==='swap'){ closeColorSubmenu(); swap.previewSwap(); }
+    else{ closeColorSubmenu(); swap.revertSwap(); }
   });
-  el.addEventListener('mouseleave',function(){ revertSwap(); });
+  el.addEventListener('mouseleave',function(){ swap.revertSwap(); });
   el.addEventListener('click',function(e){
     const b=e.target.closest('button'); if(!b) return;
     switch(b.dataset.a){
       case 'presets': return; /* the submenu handles its own clicks */
-      case 'clear': $('clearOverridesBtn').click(); break;
-      case 'selectAll': $('selectAllBtn').click(); break;
-      case 'deselectAll': $('deselectAllBtn').click(); break;
-      case 'swap': commitSwap(); break;
+      case 'clear': clearAllOverrides(); break;
+      case 'selectAll': highlightAllWords(); break;
+      case 'deselectAll': unhighlightAllWords(); break;
+      case 'swap': swap.commitSwap(); break;
     }
     closeBoardMenu();
   });
 
-  activeBoardMenu={el:el,revertSwap:revertSwap};
+  activeBoardMenu={el:el,revertSwap:swap.revertSwap};
 }
 
 board.addEventListener('contextmenu',function(ev){
@@ -729,28 +791,90 @@ function snapshotLayout(id,name){
 let layouts=loadLayouts();
 let currentSaveId=null;
 
-function refreshSavedList(){
-  const list=$('savedList');
-  if(!layouts.length){
-    list.innerHTML='<p class="hint" style="margin:0">Nothing saved yet. Name it above and press Save.</p>';
-    return;
-  }
+/* ============ header/footer dropdown menus ============ */
+/* Generic open/close for the new Load/Save/Export/Text appearance/Settings
+   menus — each is a .ctx-menu nested in a .menu-anchor (position:relative)
+   wrapper, toggled by its own trigger button. Independent of the older
+   per-word/board-context-menu/combo popover systems, which manage their own
+   elements and close-on-outside-click already. */
+let openMenuEls=[];
+function closeAllMenus(){
+  openMenuEls.forEach(m=>{ m.classList.add('closed'); });
+  openMenuEls=[];
+}
+function showMenu(menu){
+  closeAllMenus();
+  menu.classList.remove('closed');
+  openMenuEls=[menu];
+}
+document.addEventListener('click',function(e){
+  if(openMenuEls.length&&!e.target.closest('.menu-anchor')) closeAllMenus();
+});
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape') closeAllMenus();
+});
+function initToggleMenu(btnId,menuId,onOpen){
+  const btn=$(btnId), menu=$(menuId);
+  btn.addEventListener('click',function(e){
+    e.stopPropagation();
+    if(!menu.classList.contains('closed')){ closeAllMenus(); return; }
+    if(onOpen) onOpen();
+    showMenu(menu);
+  });
+}
+initToggleMenu('exportMenuBtn','exportMenu');
+initToggleMenu('textAppearanceBtn','textAppearanceMenu');
+initToggleMenu('settingsBtn','settingsMenu');
+
+/* Text appearance also carries its own copy of Clear overrides/Colour
+   presets/Highlight all/Un-highlight all/Swap colours — same actions as the
+   board's right-click menu, reachable here too. Shares the colour-preset
+   submenu and swap-hover-preview logic with that menu (see openBoardMenu). */
+(function initTextAppearanceColourActions(){
+  const menu=$('textAppearanceMenu');
+  const swap=makeSwapHover();
+  menu.addEventListener('mouseover',function(e){
+    const b=e.target.closest('button[data-a]'); if(!b) return;
+    if(b.dataset.a==='presets'){ openColorPresetSubmenu(b,closeAllMenus); swap.revertSwap(); }
+    else if(b.dataset.a==='swap'){ closeColorSubmenu(); swap.previewSwap(); }
+    else{ closeColorSubmenu(); swap.revertSwap(); }
+  });
+  menu.addEventListener('mouseleave',function(){ swap.revertSwap(); });
+  menu.addEventListener('click',function(e){
+    const b=e.target.closest('button[data-a]'); if(!b) return;
+    switch(b.dataset.a){
+      case 'presets': return; /* the submenu handles its own clicks */
+      case 'clear': clearAllOverrides(); break;
+      case 'selectAll': highlightAllWords(); break;
+      case 'deselectAll': unhighlightAllWords(); break;
+      case 'swap': swap.commitSwap(); break;
+    }
+    closeAllMenus();
+  });
+})();
+
+function renderLoadMenu(){
+  const menu=$('loadMenu');
   const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  list.innerHTML=layouts.slice().sort((a,b)=>b.at-a.at).map(function(l){
+  const rows=layouts.length?layouts.slice().sort((a,b)=>b.at-a.at).map(function(l){
     const d=new Date(l.at);
     const when=d.getDate()+' '+months[d.getMonth()]+' '+d.getFullYear();
     return '<div class="saved-row">'+
       '<span style="width:14px;height:14px;background:'+twoTone(l.state.padColor,l.state.fontColor)+';border:1px solid var(--rule);flex:none"></span>'+
       '<button class="name" data-load="'+l.id+'">'+esc(l.name)+'<br><span class="meta">'+when+(l.id===currentSaveId?' · open':'')+'</span></button>'+
       '<button class="del" data-del="'+l.id+'" aria-label="Delete">&times;</button></div>';
-  }).join('');
+  }).join(''):'<p class="hint" style="margin:0;padding:4px 6px">Nothing saved yet.</p>';
+  menu.innerHTML=rows+'<hr>'+
+    '<button type="button" id="exportJsonBtn">Export .json</button>'+
+    '<button type="button" id="importJsonBtn">Import .json</button>';
 }
+initToggleMenu('loadBtn','loadMenu',renderLoadMenu);
 
 function loadObj(obj){
   S=Object.assign(defaultState(),obj);
   currentSaveId=null;
   dirty=false;
-  syncInputs(); render(); refreshSavedList();
+  syncInputs(); render();
 }
 
 function commitSave(entry,replaceId){
@@ -765,31 +889,42 @@ function commitSave(entry,replaceId){
     layouts=prev;
     flash('Could not save — storage is full.');
   }
-  refreshSavedList();
 }
-$('saveSlotBtn').addEventListener('click',function(){
+/* Same nuanced conflict detection as before (same-name/renamed/collides
+   with a different saved layout), just presented as a dropdown under the
+   Save button instead of a centered modal — and skipped entirely when
+   there's no conflict, straight to commitSave. */
+$('saveBtn').addEventListener('click',function(e){
+  e.stopPropagation();
   const typed=($('layoutName').value||'').trim()||'Untitled';
   const current=layouts.find(l=>l.id===currentSaveId);
   const byName=layouts.find(l=>l.name===typed&&l.id!==currentSaveId);
+  let actions=null;
   if(current&&current.name===typed){
-    return openModal('Save','You already have a layout saved under this name.',[
+    actions=[
       {label:'Update "'+current.name+'"',fn:()=>commitSave(snapshotLayout(current.id,typed),current.id)},
-      {label:'Save as a new layout',fn:()=>commitSave(snapshotLayout(uid(),uniqueLayoutName(typed)))},
-      {label:'Cancel'}]);
-  }
-  if(current){
-    return openModal('Save','This started as "'+current.name+'" and the name has changed.',[
+      {label:'Save as a new layout',fn:()=>commitSave(snapshotLayout(uid(),uniqueLayoutName(typed)))}];
+  }else if(current){
+    actions=[
       {label:'Rename and update it',fn:()=>commitSave(snapshotLayout(current.id,uniqueLayoutName(typed)),current.id)},
-      {label:'Save as a new layout',fn:()=>commitSave(snapshotLayout(uid(),uniqueLayoutName(typed)))},
-      {label:'Cancel'}]);
-  }
-  if(byName){
-    return openModal('Save','A different layout is already called "'+typed+'".',[
+      {label:'Save as a new layout',fn:()=>commitSave(snapshotLayout(uid(),uniqueLayoutName(typed)))}];
+  }else if(byName){
+    actions=[
       {label:'Overwrite it',fn:()=>commitSave(snapshotLayout(byName.id,typed),byName.id)},
-      {label:'Save as "'+uniqueLayoutName(typed)+'"',fn:()=>commitSave(snapshotLayout(uid(),uniqueLayoutName(typed)))},
-      {label:'Cancel'}]);
+      {label:'Save as "'+uniqueLayoutName(typed)+'"',fn:()=>commitSave(snapshotLayout(uid(),uniqueLayoutName(typed)))}];
   }
-  commitSave(snapshotLayout(uid(),typed));
+  if(!actions){ commitSave(snapshotLayout(uid(),typed)); return; }
+  const menu=$('saveMenu');
+  menu.innerHTML=actions.map((a,i)=>'<button type="button" data-i="'+i+'">'+esc(a.label)+'</button>').join('')+
+    '<hr><button type="button" data-i="cancel">Cancel</button>';
+  menu.__actions=actions;
+  showMenu(menu);
+});
+$('saveMenu').addEventListener('click',function(e){
+  const b=e.target.closest('button'); if(!b) return;
+  const actions=this.__actions;
+  closeAllMenus();
+  if(b.dataset.i!=='cancel'&&actions) actions[+b.dataset.i].fn();
 });
 
 function guardUnsaved(what,next){
@@ -806,27 +941,53 @@ function loadLayout(id){
     currentSaveId=l.id;
     dirty=false;
     $('layoutName').value=l.name;
-    syncInputs(); render(); refreshSavedList();
+    syncInputs(); render();
     flash('Loaded "'+l.name+'".');
   });
 }
-$('savedList').addEventListener('click',function(e){
+$('loadMenu').addEventListener('click',function(e){
   const b=e.target.closest('button'); if(!b) return;
-  if(b.dataset.load) loadLayout(b.dataset.load);
+  if(b.id==='exportJsonBtn'){
+    const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+    const a=document.createElement('a');
+    a.download='hubot-layout.json'; a.href=URL.createObjectURL(blob); a.click();
+    URL.revokeObjectURL(a.href);
+    dirty=false;
+    closeAllMenus();
+    return;
+  }
+  if(b.id==='importJsonBtn'){ $('importJsonFile').click(); return; }
+  if(b.dataset.load){ closeAllMenus(); loadLayout(b.dataset.load); }
   if(b.dataset.del){
     const l=layouts.find(l=>l.id===b.dataset.del);
+    closeAllMenus();
     openModal('Delete','Delete "'+(l?l.name:'this layout')+'"? This cannot be undone.',[
       {label:'Delete it',fn:function(){
         layouts=layouts.filter(l=>l.id!==b.dataset.del);
         if(currentSaveId===b.dataset.del) currentSaveId=null;
         saveLayoutsList(layouts);
-        refreshSavedList();
       }},{label:'Cancel'}]);
   }
 });
-refreshSavedList();
+$('importJsonFile').addEventListener('change',function(){
+  const f=this.files[0]; if(!f) return;
+  const reader=new FileReader();
+  reader.onload=function(){
+    try{
+      const obj=JSON.parse(reader.result);
+      pushHistory();
+      loadObj(obj);
+      flash('Layout imported.');
+    }catch(e){ flash('Import failed — not valid JSON.'); }
+    $('importJsonFile').value='';
+  };
+  reader.readAsText(f);
+});
 
 /* ============ modal ============ */
+/* Still used for the two flows that stayed as centered prompts: the
+   unsaved-changes guard (guardUnsaved) and confirming a saved layout's
+   deletion — only the Save conflict prompt moved to the dropdown above. */
 let modalActions=[];
 function closeModal(){
   $('modal').classList.remove('on');
@@ -846,28 +1007,6 @@ $('modalActions').addEventListener('click',function(e){
 });
 $('modal').addEventListener('click',function(e){ if(e.target.id==='modal') closeModal(); });
 document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeModal(); });
-$('exportJsonBtn').addEventListener('click',function(){
-  const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
-  const a=document.createElement('a');
-  a.download='hubot-layout.json'; a.href=URL.createObjectURL(blob); a.click();
-  URL.revokeObjectURL(a.href);
-  dirty=false;
-});
-$('importJsonBtn').addEventListener('click',function(){ $('importJsonFile').click(); });
-$('importJsonFile').addEventListener('change',function(){
-  const f=this.files[0]; if(!f) return;
-  const reader=new FileReader();
-  reader.onload=function(){
-    try{
-      const obj=JSON.parse(reader.result);
-      pushHistory();
-      loadObj(obj);
-      flash('Layout imported.');
-    }catch(e){ flash('Import failed — not valid JSON.'); }
-    $('importJsonFile').value='';
-  };
-  reader.readAsText(f);
-});
 
 /* ---------- sync DOM inputs from state (load / undo / redo) ---------- */
 function matchPresetIndex(font,pad){
@@ -893,17 +1032,12 @@ function matchPresetLabel(font,pad){
 function syncInputs(){
   $('text').value=S.text;
   $('subtitle').value=S.subtitle;
-  subPresetCombo.refresh();
-  $('dateToggle').textContent=S.dateOn?'On':'Off';
-  $('dateToggle').classList.toggle('active',S.dateOn);
+  $('addDateBtn').classList.toggle('active',S.dateOn);
+  $('addSubtitleBtn').classList.toggle('active',S.subtitleOn);
   datePresetCombo.refresh();
   $('dateMonth').value=S.dateMonth; $('dateYear').value=S.dateYear;
-  titlePresetCombo.refresh();
   document.querySelectorAll('[data-size]').forEach(function(btn){
     btn.classList.toggle('active',+btn.dataset.size===S.fontSize);
-  });
-  document.querySelectorAll('[data-scale]').forEach(function(btn){
-    btn.classList.toggle('active',+btn.dataset.scale===S.exportScale);
   });
   setZoom(S.zoom);
 }
@@ -1139,7 +1273,13 @@ function render(){
   /* ---- subtitle: measured, own single line for now (wraps as one block if it has line breaks) ---- */
   const subSize=Math.max(10,size*0.32);
   const subStyle=fontStyle(subSize,trackPct,350,100);
-  const subLines=S.subtitle.split('\n').filter(l=>l.trim()!=='' ).length?S.subtitle.split('\n'):[];
+  /* Turning the subtitle on with no text typed yet shows a ghost "Edit Me"
+     line instead of nothing — an editing affordance, not real content, so
+     it's excluded from lastGlyphRuns below (never exported) and drawn at
+     reduced opacity to read as a placeholder. */
+  const subHasText=S.subtitle.split('\n').some(l=>l.trim()!=='' );
+  const subIsPlaceholder=S.subtitleOn&&!subHasText;
+  const subLines=S.subtitleOn?(subHasText?S.subtitle.split('\n'):['Edit Me']):[];
   const subM=subLines.length?metrics(subSize,trackPct):null;
   const subPitch=subSize*(S.lineHeight/100);
   const subH=subLines.length?((subLines.length-1)*subPitch+subM.cap+subM.desc):0;
@@ -1331,12 +1471,13 @@ function render(){
       const lineStart=subLines.slice(0,i).reduce((a,l)=>a+l.length+1,0);
       const t=document.createElementNS(NS,'text');
       t.setAttribute('style',subStyle); t.setAttribute('fill',S.subColor);
+      if(subIsPlaceholder) t.setAttribute('opacity','0.35');
       t.setAttribute('x',targetLeft); t.setAttribute('y',sy);
       t.textContent=lineText;
       subG.appendChild(t);
 
       if(lineText.trim()){
-        lastGlyphRuns.push({text:lineText,x:targetLeft,y:sy,size:subSize,wght:350,wdth:100,trackingPx:trackPct*subSize/100,fill:S.subColor,anchor:'start'});
+        if(!subIsPlaceholder) lastGlyphRuns.push({text:lineText,x:targetLeft,y:sy,size:subSize,wght:350,wdth:100,trackingPx:trackPct*subSize/100,fill:S.subColor,anchor:'start'});
         const bb=t.getBBox();
         const hit=document.createElementNS(NS,'rect');
         hit.setAttribute('x',bb.x); hit.setAttribute('y',sy-subM.cap);
@@ -1548,12 +1689,11 @@ function downsampleCanvas(src,targetW,targetH){
   fctx.drawImage(cur,0,0,targetW,targetH);
   return final;
 }
-$('exportBtn').addEventListener('click',async function(){
-  const btn=this; btn.disabled=true; flash('Preparing export…');
+async function exportPNG(scale,btn){
+  btn.disabled=true; flash('Preparing export…');
   try{
     const built=await buildExportSVG();
     const svg=built.svg, bbox=built.bbox;
-    const scale=clamp(S.exportScale||2,1,2);
     const outW=Math.round(bbox.width*scale), outH=Math.round(bbox.height*scale);
     /* Supersample: rasterise at up to 10x the target size, then downsample
        back down to it, so the exported pixels are an average of a much
@@ -1586,7 +1726,9 @@ $('exportBtn').addEventListener('click',async function(){
     btn.disabled=false;
     flash('Export failed — '+e.message);
   }
-});
+}
+$('exportPng1Btn').addEventListener('click',function(){ closeAllMenus(); exportPNG(1,this); });
+$('exportPng2Btn').addEventListener('click',function(){ closeAllMenus(); exportPNG(2,this); });
 
 /* The font now lives in its own file (hubot-sans.ttf) instead of being
    inlined as page-context base64 — fetched once and cached, since both the
@@ -1668,6 +1810,7 @@ async function buildOutlinePaths(){
 }
 
 $('exportSvgBtn').addEventListener('click',async function(){
+  closeAllMenus();
   const btn=this; btn.disabled=true; flash('Preparing export…');
   try{
     const built=await buildExportSVG();
@@ -1712,7 +1855,9 @@ $('exportSvgBtn').addEventListener('click',async function(){
 function measureHeader(){
   const h=document.querySelector('header');
   if(h) document.documentElement.style.setProperty('--hh',h.offsetHeight+'px');
-  /* the 100%-zoom baseline depends on viewport/header size (see
+  const f=document.querySelector('footer.bottom-bar');
+  if(f) document.documentElement.style.setProperty('--fh',f.offsetHeight+'px');
+  /* the 100%-zoom baseline depends on viewport/header/footer size (see
      measureFitWidth) — keep it current and reapply the user's zoom level
      against it */
   if(typeof measureFitWidth==='function'){ measureFitWidth(); setZoom(S.zoom); }
