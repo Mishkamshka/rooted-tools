@@ -38,8 +38,8 @@
      once a zoomed board grew past .stage's own box. safe falls back to
      start-alignment only for the overflowing amount, so it's still centred
      whenever it fits, but nothing goes permanently out of reach. */
-  .stage{background:#fff;border:1px solid var(--rule);display:flex;justify-content:safe center;align-items:safe center;padding:6px;overflow:auto; height:100%}
-  svg#board{width:100%;height:auto;max-height:calc(100vh - var(--hh,68px) - 40px);display:block;flex:none; overflow:visible}
+  .stage{background:var(--rule);border:1px solid var(--rule);display:flex;justify-content:safe center;align-items:safe center;padding:6px;overflow:auto; height:100dvh}
+  svg#board{width:100%;height:auto;max-height:calc(100vh - var(--hh,68px) - 40px);display:block;flex:none; overflow:visible; background-color: #fff;}
   aside{flex:0 1 280px;min-width:260px;columns:1;column-gap:14px}
   aside > *{break-inside:avoid;margin-bottom:14px}
   .panel{border:1px solid var(--rule);background:#fff;padding:14px}
@@ -87,6 +87,13 @@
   .swatch-dot{width:14px;height:14px;border-radius:50%;border:1px solid var(--rule);flex:none}
   .swatch-dot.custom{background:#fff;border:1px dashed var(--muted)}
   .frame-handle.resize{cursor:ew-resize}
+  .ctx-menu{position:fixed;z-index:55;background:#fff;border:1px solid var(--ink);padding:4px;
+    box-shadow:0 4px 14px rgba(0,0,0,.18);display:flex;flex-direction:column;min-width:190px}
+  .ctx-menu button{width:100%;border:none;text-align:left;display:flex;align-items:center;
+    justify-content:space-between;gap:10px}
+  .ctx-menu button.active{background:var(--ink);color:#fff}
+  .ctx-menu .ctx-caret{font-size:10px;opacity:.6}
+  .ctx-menu hr{border:none;border-top:1px solid var(--rule);margin:4px 0;width:100%}
   @keyframes text-caret-blink{0%,50%{opacity:1}50.01%,100%{opacity:0}}
   .text-caret{animation:text-caret-blink 1s step-end infinite}
   @media (max-width:900px){
@@ -142,7 +149,7 @@
 Project Wrap-up</textarea>
       <div class="btn-row" style="margin-top:9px">
         <button id="selectAllBtn">Highlight all</button>
-        <button id="deselectAllBtn">Highlight all</button>
+        <button id="deselectAllBtn">Unhighlight all</button>
       </div>
       <p class="hint">Press Enter for a new line. Click a word in the preview to jump the cursor here and start typing. Double-click a word to drop its highlight; double-click again to bring it back. Right-click a word to give it its own colour combo. Drag the green handle on the preview to move the title, or its edge handle to resize.</p>
     </div>
@@ -2640,7 +2647,7 @@ function defaultState(){
     fontColor:'#4D1061', padColor:'#A87BFE',
     alts:ALTS.map(a=>a.on),
     off:{}, wordColors:{},
-    zoom:100, exportScale:1
+    zoom:50, exportScale:1
   };
 }
 let S=defaultState();
@@ -3104,6 +3111,138 @@ function openDatePopover(clientX,clientY){
 
   activeWordPopover={el:el,revert:revert};
 }
+
+/* Right-clicking empty canvas (not a word/subtitle/date hit-rect, which each
+   have their own popover above — tagged data-ctx="own" so this handler skips
+   them) opens a board-wide action menu. "Colour presets" opens a second
+   flyout beside this one rather than replacing it, Figma-style, so picking a
+   preset doesn't cost a trip back through the first menu. */
+let activeBoardMenu=null; /* {el} */
+let activeBoardSubmenu=null; /* {el} */
+function closeBoardSubmenu(){
+  if(!activeBoardSubmenu) return;
+  activeBoardSubmenu.el.remove();
+  activeBoardSubmenu=null;
+}
+function closeBoardMenu(){
+  closeBoardSubmenu();
+  if(!activeBoardMenu) return;
+  activeBoardMenu.revertSwap();
+  activeBoardMenu.el.remove();
+  activeBoardMenu=null;
+}
+document.addEventListener('click',function(e){
+  if(activeBoardMenu&&!activeBoardMenu.el.contains(e.target)&&
+     !(activeBoardSubmenu&&activeBoardSubmenu.el.contains(e.target))) closeBoardMenu();
+});
+document.addEventListener('keydown',function(e){
+  if(activeBoardMenu&&e.key==='Escape') closeBoardMenu();
+});
+
+function openColorPresetSubmenu(anchorBtn){
+  closeBoardSubmenu();
+  const r=anchorBtn.getBoundingClientRect();
+  const el=document.createElement('div');
+  el.className='popover';
+  let left=r.right+4;
+  if(left+190>window.innerWidth) left=r.left-190-4;
+  el.style.left=Math.max(4,left)+'px';
+  el.style.top=Math.min(r.top,window.innerHeight-220)+'px';
+  el.innerHTML=PRESETS.map((p,i)=>
+    '<button type="button" data-i="'+i+'" style="display:flex;align-items:center;gap:7px;justify-content:flex-start">'+
+      '<span style="width:14px;height:14px;background:'+twoTone(p.pad,p.font)+';border:1px solid var(--rule);flex:none"></span>'+
+      '<span class="name">'+p.name+'</span></button>').join('');
+  document.body.appendChild(el);
+
+  const original={font:S.fontColor,pad:S.padColor};
+  function preview(p){ S.fontColor=p.font; S.padColor=p.pad; render(); }
+  function revert(){ S.fontColor=original.font; S.padColor=original.pad; render(); }
+  el.addEventListener('mouseover',function(e){
+    const b=e.target.closest('button'); if(!b) return;
+    preview(PRESETS[+b.dataset.i]);
+  });
+  el.addEventListener('mouseleave',revert);
+  el.addEventListener('click',function(e){
+    const b=e.target.closest('button'); if(!b) return;
+    revert();
+    pushHistory();
+    const p=PRESETS[+b.dataset.i];
+    S.fontColor=p.font; S.padColor=p.pad;
+    syncInputs(); render();
+    closeBoardMenu();
+  });
+  activeBoardSubmenu={el:el};
+}
+
+function openBoardMenu(clientX,clientY){
+  closeBoardMenu();
+  const el=document.createElement('div');
+  el.className='ctx-menu';
+  el.style.left=Math.min(clientX,window.innerWidth-200)+'px';
+  el.style.top=Math.min(clientY,window.innerHeight-220)+'px';
+  el.innerHTML=
+    '<button type="button" data-a="clear">Clear overrides</button>'+
+    '<button type="button" data-a="presets">Colour presets <span class="ctx-caret">&#9656;</span></button>'+
+    '<hr>'+
+    '<button type="button" data-a="selectAll">Highlight all</button>'+
+    '<button type="button" data-a="deselectAll">Unhighlight all</button>'+
+    '<hr>'+
+    '<button type="button" data-a="swap">Swap colours</button>';
+  document.body.appendChild(el);
+
+  /* "Swap colours" previews live on hover, same convention as every other
+     colour control in this app — moving off without clicking reverts it,
+     clicking locks it in as one undo step. */
+  let swapOriginal=null;
+  function previewSwap(){
+    if(swapOriginal) return;
+    swapOriginal={font:S.fontColor,pad:S.padColor};
+    S.fontColor=swapOriginal.pad; S.padColor=swapOriginal.font;
+    render();
+  }
+  function revertSwap(){
+    if(!swapOriginal) return;
+    S.fontColor=swapOriginal.font; S.padColor=swapOriginal.pad;
+    render();
+    swapOriginal=null;
+  }
+  function commitSwap(){
+    if(!swapOriginal) previewSwap();
+    const orig=swapOriginal;
+    S.fontColor=orig.font; S.padColor=orig.pad;
+    pushHistory();
+    S.fontColor=orig.pad; S.padColor=orig.font;
+    syncInputs(); render();
+    swapOriginal=null;
+  }
+
+  el.addEventListener('mouseover',function(e){
+    const b=e.target.closest('button'); if(!b) return;
+    if(b.dataset.a==='presets'){ openColorPresetSubmenu(b); revertSwap(); }
+    else if(b.dataset.a==='swap'){ closeBoardSubmenu(); previewSwap(); }
+    else{ closeBoardSubmenu(); revertSwap(); }
+  });
+  el.addEventListener('mouseleave',function(){ revertSwap(); });
+  el.addEventListener('click',function(e){
+    const b=e.target.closest('button'); if(!b) return;
+    switch(b.dataset.a){
+      case 'presets': return; /* the submenu handles its own clicks */
+      case 'clear': $('clearOverridesBtn').click(); break;
+      case 'selectAll': $('selectAllBtn').click(); break;
+      case 'deselectAll': $('deselectAllBtn').click(); break;
+      case 'swap': commitSwap(); break;
+    }
+    closeBoardMenu();
+  });
+
+  activeBoardMenu={el:el,revertSwap:revertSwap};
+}
+
+board.addEventListener('contextmenu',function(ev){
+  if(ev.target.closest('[data-ctx="own"]')) return;
+  ev.preventDefault();
+  openBoardMenu(ev.clientX,ev.clientY);
+});
 
 /* ---------- zoom ---------- */
 /* The 100%-zoom "fit to screen" size, measured once from the CSS default
@@ -3597,6 +3736,7 @@ function render(){
       hit.setAttribute('width',w.right-w.left); hit.setAttribute('height',refBlockH);
       hit.setAttribute('fill','transparent');
       hit.setAttribute('class','hit-word');
+      hit.setAttribute('data-ctx','own');
       hit.style.cursor='pointer';
       hit.addEventListener('mousedown',function(ev){
         /* Root fix: an SVG rect isn't focusable, so mousedown here would
@@ -3672,6 +3812,7 @@ function render(){
         hit.setAttribute('x',bb.x); hit.setAttribute('y',sy-subM.cap);
         hit.setAttribute('width',bb.width); hit.setAttribute('height',subM.cap+subM.desc);
         hit.setAttribute('fill','transparent');
+        hit.setAttribute('data-ctx','own');
         hit.style.cursor='text';
         hit.addEventListener('mousedown',function(ev){ if(ev.button===0) ev.preventDefault(); });
         hit.addEventListener('click',function(ev){
@@ -3732,6 +3873,7 @@ function render(){
     dateHit.setAttribute('width',dateW); dateHit.setAttribute('height',dateH);
     dateHit.setAttribute('fill','transparent');
     dateHit.setAttribute('class','hit-date');
+    dateHit.setAttribute('data-ctx','own');
     dateHit.style.cursor='pointer';
     dateHit.addEventListener('contextmenu',function(ev){
       ev.preventDefault();
