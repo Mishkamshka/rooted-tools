@@ -141,8 +141,8 @@
       <textarea id="text" spellcheck="true">Black Maternal Futures
 Project Wrap-up</textarea>
       <div class="btn-row" style="margin-top:9px">
-        <button id="selectAllBtn">Select all</button>
-        <button id="deselectAllBtn">Deselect all</button>
+        <button id="selectAllBtn">Highlight all</button>
+        <button id="deselectAllBtn">Highlight all</button>
       </div>
       <p class="hint">Press Enter for a new line. Click a word in the preview to jump the cursor here and start typing. Double-click a word to drop its highlight; double-click again to bring it back. Right-click a word to give it its own colour combo. Drag the green handle on the preview to move the title, or its edge handle to resize.</p>
     </div>
@@ -226,9 +226,6 @@ Project Wrap-up</textarea>
       <div class="btn-row" style="margin-bottom:10px">
         <button data-scale="1">1&times;</button>
         <button data-scale="2">2&times;</button>
-        <button data-scale="3">3&times;</button>
-        <button data-scale="4">4&times;</button>
-        <button data-scale="6">6&times;</button>
       </div>
       <div class="btn-row">
         <button id="exportBtn">Export PNG</button>
@@ -2637,13 +2634,13 @@ function defaultState(){
     dateOn:false, dateColor:'#4D1061', datePadColor:'#A87BFE',
     dateMonth:now.getMonth()+1, dateYear:clamp(now.getFullYear(),YEAR_MIN,YEAR_MAX),
     frame:{x:null,y:null,width:null},
-    fontSize:150, lineHeight:95, tracking:-4, capPct:67,
+    fontSize:150, lineHeight:95, tracking:-4, capPct:66.7,
     padStart:10.5, padROld:17, padVOld:17,
     padStart2:10.5, padMid:4, padROther:9, padOther:17,
     fontColor:'#4D1061', padColor:'#A87BFE',
     alts:ALTS.map(a=>a.on),
     off:{}, wordColors:{},
-    zoom:100, exportScale:3
+    zoom:100, exportScale:1
   };
 }
 let S=defaultState();
@@ -3852,26 +3849,63 @@ function buildExportSVG(){
    the entire image slightly. Rounding once and reusing that exact figure for
    both removes the mismatch, so the copy onto the canvas is pixel-for-pixel
    with nothing to resample. */
+/* Downsamples in successive halving steps rather than one big jump straight
+   to the target size. A single huge-ratio drawImage (e.g. 10x -> 1x) only
+   bilinear-samples a handful of source pixels per output pixel, quietly
+   discarding most of the extra resolution it was supposed to be using;
+   halving repeatedly means every step stays within the ratio the browser's
+   own resampler actually filters well, so each output pixel ends up an
+   average of the FULL block of source pixels behind it — genuine
+   supersampling instead of a fancier-looking crop. */
+function downsampleCanvas(src,targetW,targetH){
+  let cur=src, curW=cur.width, curH=cur.height;
+  while(curW>targetW*2 && curH>targetH*2){
+    const nextW=Math.max(targetW,Math.round(curW/2)), nextH=Math.max(targetH,Math.round(curH/2));
+    const next=document.createElement('canvas');
+    next.width=nextW; next.height=nextH;
+    const nctx=next.getContext('2d');
+    nctx.imageSmoothingQuality='high';
+    nctx.drawImage(cur,0,0,nextW,nextH);
+    cur=next; curW=nextW; curH=nextH;
+  }
+  const final=document.createElement('canvas');
+  final.width=targetW; final.height=targetH;
+  const fctx=final.getContext('2d');
+  fctx.imageSmoothingQuality='high';
+  fctx.drawImage(cur,0,0,targetW,targetH);
+  return final;
+}
 $('exportBtn').addEventListener('click',function(){
   const btn=this; btn.disabled=true; flash('Preparing export…');
   try{
     const built=buildExportSVG();
     const svg=built.svg, bbox=built.bbox;
-    const scale=clamp(S.exportScale||3,1,6);
+    const scale=clamp(S.exportScale||2,1,2);
     const outW=Math.round(bbox.width*scale), outH=Math.round(bbox.height*scale);
-    svg.setAttribute('width',outW); svg.setAttribute('height',outH);
+    /* Supersample: rasterise at up to 10x the target size, then downsample
+       back down to it, so the exported pixels are an average of a much
+       denser render rather than a single direct sample — smoother curves
+       and diagonals than rasterising once at the final size. Capped so the
+       intermediate canvas can't exceed browsers' own size limits (~16384px
+       per side on most engines, tighter on Safari); ssFactor only backs off
+       from 10x when the target itself is already large enough to need it. */
+    const MAX_SS_DIM=10000;
+    const ssFactor=clamp(MAX_SS_DIM/Math.max(outW,outH),1,10);
+    const ssW=Math.round(outW*ssFactor), ssH=Math.round(outH*ssFactor);
+    svg.setAttribute('width',ssW); svg.setAttribute('height',ssH);
     const xml=new XMLSerializer().serializeToString(svg);
     const img=new Image();
     img.onload=function(){
-      const cv=document.createElement('canvas');
-      cv.width=outW; cv.height=outH; /* left transparent on purpose */
-      const ctx=cv.getContext('2d');
-      ctx.imageSmoothingQuality='high';
-      ctx.drawImage(img,0,0,cv.width,cv.height);
+      const ssCanvas=document.createElement('canvas');
+      ssCanvas.width=ssW; ssCanvas.height=ssH;
+      const sctx=ssCanvas.getContext('2d');
+      sctx.imageSmoothingQuality='high';
+      sctx.drawImage(img,0,0,ssW,ssH);
+      const cv=downsampleCanvas(ssCanvas,outW,outH); /* left transparent on purpose */
       const a=document.createElement('a');
       a.download=slugify(S.text)+'.png';
       a.href=cv.toDataURL('image/png'); a.click();
-      btn.disabled=false; flash('PNG downloaded, '+cv.width+' × '+cv.height+' ('+scale+'×), transparent.');
+      btn.disabled=false; flash('PNG downloaded, '+cv.width+' × '+cv.height+' ('+scale+'×), supersampled '+ssFactor.toFixed(1)+'x, transparent.');
     };
     img.onerror=function(){ btn.disabled=false; flash('Export failed while rasterising.'); };
     img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(xml);
