@@ -53,6 +53,7 @@
   .field:last-child{margin-bottom:0}
   .field label{font-size:11px;color:var(--muted)}
   .field .row{display:flex;align-items:center;gap:8px}
+  input[type=text]{width:100%;padding:7px 9px;border:1px solid var(--rule);font-size:13px;font-family:inherit}
   input[type=number]{width:70px;padding:6px 7px;border:1px solid var(--rule);font-size:13px;font-family:var(--mono)}
   input[type=range]{flex:1;min-width:0}
   input[type=color]{width:36px;height:30px;padding:0;border:1px solid var(--rule);cursor:pointer;background:none}
@@ -94,6 +95,22 @@
   .ctx-menu button.active{background:var(--ink);color:#fff}
   .ctx-menu .ctx-caret{font-size:10px;opacity:.6}
   .ctx-menu hr{border:none;border-top:1px solid var(--rule);margin:4px 0;width:100%}
+  .saved-row{display:flex;align-items:center;gap:8px;padding:5px 4px}
+  .saved-row:hover{background:#F1EFE8}
+  .saved-row .name{flex:1;text-align:left;border:none;background:none;font-family:inherit;
+    padding:0;width:auto}
+  .saved-row .name:hover{background:none;color:var(--ink);text-decoration:underline}
+  .saved-row .meta{font-size:10px;color:var(--muted);font-family:var(--mono)}
+  .saved-row .del{border:none;background:none;color:var(--muted);font-size:15px;padding:0 3px;
+    width:auto;cursor:pointer}
+  .saved-row .del:hover{background:none;color:#C0392B}
+  #modal{position:fixed;inset:0;background:rgba(35,34,31,.35);display:none;
+    align-items:center;justify-content:center;padding:20px;z-index:60}
+  #modal.on{display:flex}
+  .modal-box{background:#fff;border:1px solid var(--ink);padding:18px;max-width:340px;width:100%}
+  .modal-box p{font-size:13px;line-height:1.5;margin:0 0 14px}
+  .modal-box .stack{display:flex;flex-direction:column;gap:6px}
+  .modal-box .stack button{width:100%;text-align:left;padding:9px 11px}
   @keyframes text-caret-blink{0%,50%{opacity:1}50.01%,100%{opacity:0}}
   .text-caret{animation:text-caret-blink 1s step-end infinite}
   @media (max-width:900px){
@@ -103,6 +120,12 @@
 </style>
 </head>
 <body>
+
+<div id="modal"><div class="modal-box" id="modalBox">
+  <span class="lbl" id="modalTitle"></span>
+  <p id="modalMsg"></p>
+  <div class="stack" id="modalActions"></div>
+</div></div>
 
 <header>
   <div class="hdr-left">
@@ -213,15 +236,14 @@ Project Wrap-up</textarea>
     <div class="panel">
       <span class="lbl">Save &amp; load</span>
       <div class="field">
-        <label>Saved layouts</label>
-        <select id="slotSelect"><option value="">— none saved —</option></select>
+        <label>Name</label>
+        <input type="text" id="layoutName" placeholder="Untitled">
       </div>
       <div class="btn-row" style="margin-bottom:8px">
         <button id="saveSlotBtn">Save</button>
-        <button id="loadSlotBtn">Load</button>
-        <button id="deleteSlotBtn">Delete</button>
       </div>
-      <div class="btn-row">
+      <div id="savedList"></div>
+      <div class="btn-row" style="margin-top:10px">
         <button id="exportJsonBtn">Export .json</button>
         <button id="importJsonBtn">Import .json</button>
       </div>
@@ -3284,37 +3306,152 @@ function ensureFrame(){
 }
 
 /* ---------- save / load ---------- */
-function slots(){ try{ return JSON.parse(localStorage.getItem('hubotLayouts')||'{}'); }catch(e){ return {}; } }
-function saveSlots(o){ localStorage.setItem('hubotLayouts',JSON.stringify(o)); }
-function refreshSlotSelect(){
-  const sel=$('slotSelect'); const names=Object.keys(slots());
-  sel.innerHTML='<option value="">— none saved —</option>'+
-    names.map(n=>'<option value="'+n+'">'+n+'</option>').join('');
+/* Named, listed layouts with a save-conflict prompt and an unsaved-changes
+   guard — the same save flow as layout-studies.html's Saved panel, in place
+   of this tool's old prompt()-for-a-name plus dropdown-select pair. */
+function uid(){ return Math.random().toString(36).slice(2,10); }
+function esc(str){ return String(str).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function loadLayouts(){
+  let raw;
+  try{ raw=JSON.parse(localStorage.getItem('hubotLayouts')||'[]'); }catch(e){ return []; }
+  if(Array.isArray(raw)) return raw;
+  /* migrate the old {name: state} object format from before named/listed saves */
+  return Object.keys(raw).map(name=>({id:uid(),name:name,at:Date.now(),state:raw[name]}));
 }
+function saveLayoutsList(list){
+  try{ localStorage.setItem('hubotLayouts',JSON.stringify(list)); return true; }
+  catch(e){ return false; }
+}
+function uniqueLayoutName(base){
+  let n=base,i=2;
+  while(layouts.some(l=>l.name===n)){ n=base+' '+i; i++; }
+  return n;
+}
+function snapshotLayout(id,name){
+  return {id:id,name:name,at:Date.now(),state:snapshot()};
+}
+
+let layouts=loadLayouts();
+let currentSaveId=null;
+
+function refreshSavedList(){
+  const list=$('savedList');
+  if(!layouts.length){
+    list.innerHTML='<p class="hint" style="margin:0">Nothing saved yet. Name it above and press Save.</p>';
+    return;
+  }
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  list.innerHTML=layouts.slice().sort((a,b)=>b.at-a.at).map(function(l){
+    const d=new Date(l.at);
+    const when=d.getDate()+' '+months[d.getMonth()]+' '+d.getFullYear();
+    return '<div class="saved-row">'+
+      '<span style="width:14px;height:14px;background:'+twoTone(l.state.padColor,l.state.fontColor)+';border:1px solid var(--rule);flex:none"></span>'+
+      '<button class="name" data-load="'+l.id+'">'+esc(l.name)+'<br><span class="meta">'+when+(l.id===currentSaveId?' · open':'')+'</span></button>'+
+      '<button class="del" data-del="'+l.id+'" aria-label="Delete">&times;</button></div>';
+  }).join('');
+}
+
 function loadObj(obj){
   S=Object.assign(defaultState(),obj);
+  currentSaveId=null;
   dirty=false;
-  syncInputs(); render();
+  syncInputs(); render(); refreshSavedList();
+}
+
+function commitSave(entry,replaceId){
+  const prev=layouts;
+  layouts=replaceId?layouts.map(l=>l.id===replaceId?entry:l):[entry].concat(layouts);
+  if(saveLayoutsList(layouts)){
+    currentSaveId=entry.id;
+    dirty=false;
+    $('layoutName').value=entry.name;
+    flash((replaceId?'Updated "':'Saved "')+entry.name+'".');
+  } else {
+    layouts=prev;
+    flash('Could not save — storage is full.');
+  }
+  refreshSavedList();
 }
 $('saveSlotBtn').addEventListener('click',function(){
-  const name=prompt('Save layout as:'); if(!name) return;
-  const s=slots(); s[name]=S; saveSlots(s); refreshSlotSelect();
-  $('slotSelect').value=name;
-  dirty=false;
-  flash('Saved "'+name+'".');
+  const typed=($('layoutName').value||'').trim()||'Untitled';
+  const current=layouts.find(l=>l.id===currentSaveId);
+  const byName=layouts.find(l=>l.name===typed&&l.id!==currentSaveId);
+  if(current&&current.name===typed){
+    return openModal('Save','You already have a layout saved under this name.',[
+      {label:'Update "'+current.name+'"',fn:()=>commitSave(snapshotLayout(current.id,typed),current.id)},
+      {label:'Save as a new layout',fn:()=>commitSave(snapshotLayout(uid(),uniqueLayoutName(typed)))},
+      {label:'Cancel'}]);
+  }
+  if(current){
+    return openModal('Save','This started as "'+current.name+'" and the name has changed.',[
+      {label:'Rename and update it',fn:()=>commitSave(snapshotLayout(current.id,uniqueLayoutName(typed)),current.id)},
+      {label:'Save as a new layout',fn:()=>commitSave(snapshotLayout(uid(),uniqueLayoutName(typed)))},
+      {label:'Cancel'}]);
+  }
+  if(byName){
+    return openModal('Save','A different layout is already called "'+typed+'".',[
+      {label:'Overwrite it',fn:()=>commitSave(snapshotLayout(byName.id,typed),byName.id)},
+      {label:'Save as "'+uniqueLayoutName(typed)+'"',fn:()=>commitSave(snapshotLayout(uid(),uniqueLayoutName(typed)))},
+      {label:'Cancel'}]);
+  }
+  commitSave(snapshotLayout(uid(),typed));
 });
-$('loadSlotBtn').addEventListener('click',function(){
-  const name=$('slotSelect').value; if(!name) return;
-  const s=slots(); if(!s[name]) return;
-  pushHistory();
-  loadObj(s[name]);
-  flash('Loaded "'+name+'".');
+
+function guardUnsaved(what,next){
+  if(!dirty) return next();
+  openModal('Unsaved changes',
+    'This layout has changes that aren’t saved. '+what+' will lose them — save it first if you want to keep it.',
+    [{label:'Discard and continue',fn:next},{label:'Cancel'}]);
+}
+function loadLayout(id){
+  const l=layouts.find(l=>l.id===id); if(!l) return;
+  guardUnsaved('Loading another layout',function(){
+    pushHistory();
+    S=Object.assign(defaultState(),l.state);
+    currentSaveId=l.id;
+    dirty=false;
+    $('layoutName').value=l.name;
+    syncInputs(); render(); refreshSavedList();
+    flash('Loaded "'+l.name+'".');
+  });
+}
+$('savedList').addEventListener('click',function(e){
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.load) loadLayout(b.dataset.load);
+  if(b.dataset.del){
+    const l=layouts.find(l=>l.id===b.dataset.del);
+    openModal('Delete','Delete "'+(l?l.name:'this layout')+'"? This cannot be undone.',[
+      {label:'Delete it',fn:function(){
+        layouts=layouts.filter(l=>l.id!==b.dataset.del);
+        if(currentSaveId===b.dataset.del) currentSaveId=null;
+        saveLayoutsList(layouts);
+        refreshSavedList();
+      }},{label:'Cancel'}]);
+  }
 });
-$('deleteSlotBtn').addEventListener('click',function(){
-  const name=$('slotSelect').value; if(!name) return;
-  const s=slots(); delete s[name]; saveSlots(s); refreshSlotSelect();
-  flash('Deleted "'+name+'".');
+refreshSavedList();
+
+/* ============ modal ============ */
+let modalActions=[];
+function closeModal(){
+  $('modal').classList.remove('on');
+  modalActions=[];
+}
+function openModal(title,msg,actions){
+  modalActions=actions||[];
+  $('modalTitle').textContent=title;
+  $('modalMsg').textContent=msg||'';
+  $('modalActions').innerHTML=modalActions
+    .map((a,i)=>'<button data-act="'+i+'">'+esc(a.label)+'</button>').join('');
+  $('modal').classList.add('on');
+}
+$('modalActions').addEventListener('click',function(e){
+  const b=e.target.closest('button'); if(!b) return;
+  const a=modalActions[+b.dataset.act]; closeModal(); if(a&&a.fn) a.fn();
 });
+$('modal').addEventListener('click',function(e){ if(e.target.id==='modal') closeModal(); });
+document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeModal(); });
 $('exportJsonBtn').addEventListener('click',function(){
   const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
   const a=document.createElement('a');
@@ -3337,7 +3474,6 @@ $('importJsonFile').addEventListener('change',function(){
   };
   reader.readAsText(f);
 });
-refreshSlotSelect();
 
 /* ---------- sync DOM inputs from state (load / undo / redo) ---------- */
 function matchPresetIndex(font,pad){
