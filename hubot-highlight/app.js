@@ -595,9 +595,6 @@ function openColorPresetSubmenu(anchorBtn,getState,setState,onCommit){
   const r=anchorBtn.getBoundingClientRect();
   const el=document.createElement('div');
   el.className='popover';
-  let left=r.right+4;
-  if(left+190>window.innerWidth) left=r.left-190-4;
-  el.style.left=Math.max(4,left)+'px';
   /* aligned to the "Colour presets" row itself, not the parent panel — a
      panel like Text appearance has other sections above this row, so
      aligning to the panel's own top edge would leave the flyout floating
@@ -608,6 +605,14 @@ function openColorPresetSubmenu(anchorBtn,getState,setState,onCommit){
       '<span style="width:14px;height:14px;background:'+twoTone(p.pad,p.font)+';border:1px solid var(--rule);flex:none"></span>'+
       '<span class="name">'+p.name+'</span></button>').join('');
   document.body.appendChild(el);
+  /* measured only now that it's in the DOM (with its real content) — its
+     width varies with the longest preset name, so a hardcoded guess here
+     either flips too early or, worse, not far enough, leaving it
+     overlapping the parent menu instead of clearing it. */
+  const w=el.getBoundingClientRect().width;
+  let left=r.right+4;
+  if(left+w>window.innerWidth) left=r.left-w-4;
+  el.style.left=Math.max(4,left)+'px';
 
   const original=getState();
   function preview(p){ setState({font:p.font,pad:p.pad}); render(); }
