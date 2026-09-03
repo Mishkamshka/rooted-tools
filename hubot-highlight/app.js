@@ -52,7 +52,7 @@ const YEAR_MIN=2020, YEAR_MAX=2040;
 function defaultState(){
   const now=new Date();
   return {
-    text:'Black Maternal Futures\nProject Wrap-up',
+    text:'Rooted, The Centre for\n Reparative Innovation',
     subtitle:'', subColor:'#4D1061', subtitleOn:false,
     dateOn:false, dateColor:'#4D1061', datePadColor:'#A87BFE',
     dateMonth:now.getMonth()+1, dateYear:clamp(now.getFullYear(),YEAR_MIN,YEAR_MAX),
@@ -63,7 +63,7 @@ function defaultState(){
     fontColor:'#4D1061', padColor:'#A87BFE',
     alts:ALTS.map(a=>a.on),
     off:{}, wordColors:{},
-    zoom:50, exportScale:1
+    zoom:50
   };
 }
 let S=defaultState();
@@ -139,17 +139,6 @@ document.querySelectorAll('[data-size]').forEach(function(btn){
     syncInputs(); render();
   });
 });
-/* Settings' duplicate of the old "Export resolution" panel keeps that
-   panel's original two-step shape (pick a scale, then press Export) rather
-   than the header Export dropdown's single-click-per-scale items — both
-   end up calling the same exportPNG(scale,btn). */
-document.querySelectorAll('[data-scale]').forEach(function(btn){
-  btn.addEventListener('click',function(){
-    S.exportScale=+btn.dataset.scale;
-    syncInputs();
-  });
-});
-
 /* Named so the board's right-click context menu can call them directly —
    these used to be sidebar buttons the menu triggered via .click(), but the
    redesign moved title colour presets/swap/clear entirely into that context
@@ -190,11 +179,6 @@ function toggleHighlightAllLabel(){
 function toggleHighlightAll(){
   if(allWordsHighlighted()) unhighlightAllWords(); else highlightAllWords();
 }
-/* Settings' duplicates of the same three actions. */
-$('stToggleHighlightBtn').addEventListener('click',function(){ toggleHighlightAll(); closeAllMenus(); });
-$('stColorSwapBtn').addEventListener('click',function(){ swapTitleColours(); closeAllMenus(); });
-$('stClearOverridesBtn').addEventListener('click',function(){ clearAllOverrides(); closeAllMenus(); });
-
 /* A popover-style preset picker: hovering an option previews it live on the
    canvas and in the raw colour pickers; moving off without clicking reverts;
    clicking locks it in as one undo step (snapshotting the true pre-open
@@ -340,14 +324,7 @@ function initColorCombo(triggerId,menuId,list,getState,setState){
   return {refresh:refresh};
 }
 
-/* Settings' duplicate of the old "Colour presets" panel — same collapsed
-   trigger+dropdown style that panel used, unlike the board/Text-appearance
-   menus' always-expanded flat list. */
-const stTitlePresetCombo=initPresetCombo('stTitlePresetTrigger','stTitlePresetMenu',
-  ()=>({font:S.fontColor,pad:S.padColor}),
-  (v)=>{ S.fontColor=v.font; S.padColor=v.pad; });
-
-$('text').addEventListener('input',function(){ pushHistoryCoalesced(); S.text=$('text').value; $('stText').value=S.text; render(); });
+$('text').addEventListener('input',function(){ pushHistoryCoalesced(); S.text=$('text').value; render(); });
 /* the canvas caret tracks this field's real cursor, so anything that can
    move the cursor (typing, arrow keys, clicking inside the field itself)
    needs to trigger a redraw, not just changes to the text's value */
@@ -361,20 +338,7 @@ $('text').addEventListener('focus',function(){ setTimeout(render,0); });
 $('text').addEventListener('blur',function(){ setTimeout(render,0); });
 $('text').addEventListener('keyup',function(){ render(); });
 $('text').addEventListener('click',function(){ render(); });
-$('subtitle').addEventListener('input',function(){ pushHistoryCoalesced(); S.subtitle=$('subtitle').value; $('stSubtitle').value=S.subtitle; render(); });
-
-/* Settings duplicates the Text/Subtitle fields too — same wiring, mirrored
-   onto a second element since an id (and so a DOM node) can't be shared
-   between two places at once. Each one's own input handler also writes
-   straight into the other's .value, so they stay in sync live while typing
-   rather than only catching up the next time syncInputs() happens to run
-   (e.g. after a button action, undo/redo, or load). */
-$('stText').addEventListener('input',function(){ pushHistoryCoalesced(); S.text=$('stText').value; $('text').value=S.text; render(); });
-$('stText').addEventListener('focus',function(){ setTimeout(render,0); });
-$('stText').addEventListener('blur',function(){ setTimeout(render,0); });
-$('stText').addEventListener('keyup',function(){ render(); });
-$('stText').addEventListener('click',function(){ render(); });
-$('stSubtitle').addEventListener('input',function(){ pushHistoryCoalesced(); S.subtitle=$('stSubtitle').value; $('subtitle').value=S.subtitle; render(); });
+$('subtitle').addEventListener('input',function(){ pushHistoryCoalesced(); S.subtitle=$('subtitle').value; render(); });
 
 $('addDateBtn').addEventListener('click',function(){
   pushHistory();
@@ -420,8 +384,7 @@ initHoverPanel('addSubtitleAnchor','addSubtitleMenu');
 const addDateHover=initHoverPanel('addDateAnchor','addDateMenu');
 /* Plain always-expanded swatch list (not a collapsed trigger+menu combo) —
    same hover-preview/click-to-commit convention as every other colour
-   control here. Instantiated twice: once under Add subtitle, once again
-   inside the Settings duplicate. */
+   control here. */
 function initSubtitleColourList(listId){
   const list=$(listId);
   list.innerHTML=PALETTE.map((c,i)=>
@@ -448,19 +411,14 @@ function initSubtitleColourList(listId){
   });
 }
 initSubtitleColourList('subColourList');
-initSubtitleColourList('stSubColourList');
 
 const monthOptionsHTML=MONTHS.map((m,i)=>'<option value="'+(i+1)+'">'+m+'</option>').join('');
 let yearOptionsHTML='';
 for(let y=YEAR_MIN;y<=YEAR_MAX;y++) yearOptionsHTML+='<option value="'+y+'">'+y+'</option>';
 $('dateMonth').innerHTML=monthOptionsHTML;
 $('dateYear').innerHTML=yearOptionsHTML;
-$('stDateMonth').innerHTML=monthOptionsHTML;
-$('stDateYear').innerHTML=yearOptionsHTML;
-$('dateMonth').addEventListener('change',function(){ pushHistory(); S.dateMonth=+this.value; $('stDateMonth').value=S.dateMonth; render(); });
-$('dateYear').addEventListener('change',function(){ pushHistory(); S.dateYear=+this.value; $('stDateYear').value=S.dateYear; render(); });
-$('stDateMonth').addEventListener('change',function(){ pushHistory(); S.dateMonth=+this.value; $('dateMonth').value=S.dateMonth; render(); });
-$('stDateYear').addEventListener('change',function(){ pushHistory(); S.dateYear=+this.value; $('dateYear').value=S.dateYear; render(); });
+$('dateMonth').addEventListener('change',function(){ pushHistory(); S.dateMonth=+this.value; render(); });
+$('dateYear').addEventListener('change',function(){ pushHistory(); S.dateYear=+this.value; render(); });
 
 /* The right-click word popover: hovering a preset previews it live on the
    canvas (same pattern as the panel colour combos); moving off without
@@ -875,7 +833,7 @@ let layouts=loadLayouts();
 let currentSaveId=null;
 
 /* ============ header/footer dropdown menus ============ */
-/* Generic open/close for the new Load/Save/Export/Text appearance/Settings
+/* Generic open/close for the new Load/Save/Export/Text appearance
    menus — each is a .ctx-menu nested in a .menu-anchor (position:relative)
    wrapper, toggled by its own trigger button. Independent of the older
    per-word/board-context-menu/combo popover systems, which manage their own
@@ -906,9 +864,8 @@ function initToggleMenu(btnId,menuId,onOpen){
   });
 }
 initToggleMenu('exportMenuBtn','exportMenu');
-initToggleMenu('settingsBtn','settingsMenu',function(){ renderStLoadList(); });
 /* Text appearance opens on hover, like Add subtitle/Add date, rather than
-   click-to-toggle like Load/Save/Export/Settings — it has no on/off state
+   click-to-toggle like Load/Save/Export — it has no on/off state
    of its own to reserve the click for, so hover-only is enough. */
 const textAppearanceHover=initHoverPanel('textAppearanceAnchor','textAppearanceMenu');
 
@@ -940,11 +897,9 @@ const textAppearanceHover=initHoverPanel('textAppearanceAnchor','textAppearanceM
 })();
 
 /* The date's own colour controls — Match title colours / Colour presets
-   (flyout) / Swap colours — reused by both the Add date hover panel and
-   Settings' duplicate. onAction runs after any of the three commits, so
-   each caller can decide what "done" means for its own menu style (the
-   hover panel just lets it be, closing naturally on mouseleave; Settings
-   closes itself like its other action buttons do). */
+   (flyout) / Swap colours. onAction runs after any of the three commits, so
+   the caller can decide what "done" means for its own menu style — the
+   hover panel just lets it be, closing naturally on mouseleave. */
 function initDateColourActions(menuId,onAction,hoverController){
   const menu=$(menuId);
   const swap=makeSwapHover(dateColourState.get,dateColourState.set);
@@ -970,7 +925,6 @@ function initDateColourActions(menuId,onAction,hoverController){
   });
 }
 initDateColourActions('addDateMenu',null,addDateHover);
-initDateColourActions('settingsMenu',closeAllMenus);
 
 function savedRowsHTML(){
   const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -989,12 +943,6 @@ function renderLoadMenu(){
     '<button type="button" id="importJsonBtn">Import styles</button>';
 }
 initToggleMenu('loadBtn','loadMenu',renderLoadMenu);
-/* Settings' duplicate of the same Saved list — just the rows, since it has
-   its own dedicated Export/Import .json buttons already in the static
-   markup rather than appended here. */
-function renderStLoadList(){
-  $('stLoadList').innerHTML=savedRowsHTML();
-}
 
 function loadObj(obj){
   S=Object.assign(defaultState(),obj);
@@ -1010,19 +958,16 @@ function commitSave(entry,replaceId){
     currentSaveId=entry.id;
     dirty=false;
     $('layoutName').value=entry.name;
-    $('stLayoutName').value=entry.name;
     flash((replaceId?'Updated "':'Saved "')+entry.name+'".');
   } else {
     layouts=prev;
     flash('Could not save — storage is full.');
   }
 }
-/* Same nuanced conflict detection as before (same-name/renamed/collides
-   with a different saved layout) — the header's Save presents it as a
-   dropdown under the button, skipped entirely (straight to commitSave) when
-   there's no conflict; Settings' duplicate reuses the exact same detection
-   but through the centered modal instead, since nesting one floating menu
-   inside another (Settings' own dropdown) gets awkward fast. */
+/* Same-name/renamed/collides-with-a-different-saved-layout conflict
+   detection — the header's Save presents it as a dropdown under the
+   button, skipped entirely (straight to commitSave) when there's no
+   conflict. */
 function computeSaveActions(typed){
   const current=layouts.find(l=>l.id===currentSaveId);
   const byName=layouts.find(l=>l.name===typed&&l.id!==currentSaveId);
@@ -1060,14 +1005,6 @@ $('saveMenu').addEventListener('click',function(e){
   closeAllMenus();
   if(b.dataset.i!=='cancel'&&actions) actions[+b.dataset.i].fn();
 });
-$('stSaveBtn').addEventListener('click',function(){
-  const typed=($('stLayoutName').value||'').trim()||'Untitled';
-  const actions=computeSaveActions(typed);
-  if(!actions){ commitSave(snapshotLayout(uid(),typed)); closeAllMenus(); return; }
-  closeAllMenus();
-  openModal('Save',null,actions.concat([{label:'Cancel'}]));
-});
-
 function guardUnsaved(what,next){
   if(!dirty) return next();
   openModal('Unsaved changes',
@@ -1082,7 +1019,6 @@ function loadLayout(id){
     currentSaveId=l.id;
     dirty=false;
     $('layoutName').value=l.name;
-    $('stLayoutName').value=l.name;
     syncInputs(); render();
     flash('Loaded "'+l.name+'".');
   });
@@ -1115,9 +1051,6 @@ $('loadMenu').addEventListener('click',function(e){
   if(b.id==='importJsonBtn'){ $('importJsonFile').click(); return; }
   handleSavedRowClick(e);
 });
-$('stLoadList').addEventListener('click',handleSavedRowClick);
-$('stExportJsonBtn').addEventListener('click',exportJson);
-$('stImportJsonBtn').addEventListener('click',function(){ $('importJsonFile').click(); });
 $('importJsonFile').addEventListener('change',function(){
   const f=this.files[0]; if(!f) return;
   const reader=new FileReader();
@@ -1180,9 +1113,7 @@ function matchPresetLabel(font,pad){
 }
 function syncInputs(){
   $('text').value=S.text;
-  $('stText').value=S.text;
   $('subtitle').value=S.subtitle;
-  $('stSubtitle').value=S.subtitle;
   /* The button's own label doubles as its state indicator ("Show subtitle"
      / "Hide subtitle") — visible without checking anywhere else, since the
      panel opens upward from this button and never covers it. */
@@ -1190,14 +1121,9 @@ function syncInputs(){
   $('addDateBtn').textContent=S.dateOn?'Hide date':'Show date';
   $('addSubtitleBtn').classList.toggle('active',S.subtitleOn);
   $('addSubtitleBtn').textContent=S.subtitleOn?'Hide subtitle':'Show subtitle';
-  stTitlePresetCombo.refresh();
   $('dateMonth').value=S.dateMonth; $('dateYear').value=S.dateYear;
-  $('stDateMonth').value=S.dateMonth; $('stDateYear').value=S.dateYear;
   document.querySelectorAll('[data-size]').forEach(function(btn){
     btn.classList.toggle('active',+btn.dataset.size===S.fontSize);
-  });
-  document.querySelectorAll('[data-scale]').forEach(function(btn){
-    btn.classList.toggle('active',+btn.dataset.scale===S.exportScale);
   });
   setZoom(S.zoom);
 }
@@ -1488,8 +1414,7 @@ function render(){
      inside a 'focus'/'blur' listener) means the very first render right
      after a click already shows the caret in the right place, instead of
      lagging one extra render behind while that listener's own state catches up. */
-  const activeTextField=(document.activeElement===$('text'))?$('text')
-    :(document.activeElement===$('stText'))?$('stText'):null;
+  const activeTextField=(document.activeElement===$('text'))?$('text'):null;
   const caretTarget=activeTextField
     ?offsetToWordPosition(S.text,activeTextField.selectionStart):null;
   visualLines.forEach(function(line,i){
@@ -1625,8 +1550,7 @@ function render(){
      charIndexInWord does for title words — one hit-rect per line is enough
      since there's no per-word state to key here), right-click opens its
      colour-preset combo. A fake caret is drawn the same way as the title's. */
-  const activeSubField=(document.activeElement===$('subtitle'))?$('subtitle')
-    :(document.activeElement===$('stSubtitle'))?$('stSubtitle'):null;
+  const activeSubField=(document.activeElement===$('subtitle'))?$('subtitle'):null;
   const subCaretOffset=activeSubField?activeSubField.selectionStart:null;
   if(subLines.length){
     let sy=frameY-subGapPx-subM.desc;
@@ -1752,9 +1676,7 @@ function render(){
      state even when nothing about it was clicked directly — a per-word
      double-click, a right-click popover swap, anything touching S.off runs
      through render(), so this always ends up current. */
-  const highlightAllLabel=toggleHighlightAllLabel();
-  $('taToggleAllBtn').textContent=highlightAllLabel;
-  $('stToggleHighlightBtn').textContent=highlightAllLabel;
+  $('taToggleAllBtn').textContent=toggleHighlightAllLabel();
 }
 
 /* ---------- frame dragging ---------- */
@@ -1901,7 +1823,6 @@ async function exportPNG(scale,btn){
 }
 $('exportPng1Btn').addEventListener('click',function(){ closeAllMenus(); exportPNG(1,this); });
 $('exportPng2Btn').addEventListener('click',function(){ closeAllMenus(); exportPNG(2,this); });
-$('stExportBtn').addEventListener('click',function(){ closeAllMenus(); exportPNG(clamp(S.exportScale||2,1,2),this); });
 
 /* The font now lives in its own file (hubot-sans.ttf) instead of being
    inlined as page-context base64 — fetched once and cached, since both the
@@ -2024,15 +1945,12 @@ async function exportSVG(btn){
   }
 }
 $('exportSvgBtn').addEventListener('click',function(){ exportSVG(this); });
-$('stExportSvgBtn').addEventListener('click',function(){ exportSVG(this); });
 
 /* ---------- boot ---------- */
 function measureHeader(){
   const h=document.querySelector('header');
   if(h) document.documentElement.style.setProperty('--hh',h.offsetHeight+'px');
-  const f=document.querySelector('footer.bottom-bar');
-  if(f) document.documentElement.style.setProperty('--fh',f.offsetHeight+'px');
-  /* the 100%-zoom baseline depends on viewport/header/footer size (see
+  /* the 100%-zoom baseline depends on viewport/header size (see
      measureFitWidth) — keep it current and reapply the user's zoom level
      against it */
   if(typeof measureFitWidth==='function'){ measureFitWidth(); setZoom(S.zoom); }

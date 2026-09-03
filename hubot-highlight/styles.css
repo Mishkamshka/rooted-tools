@@ -273,6 +273,13 @@ header {
   width: auto;
 }
 
+.hdr-center {
+  display: flex;
+  align-items: center;
+  gap: var(--reg);
+  flex-wrap: wrap;
+}
+
 .hdr-tools {
   display: flex;
   align-items: center;
@@ -339,30 +346,9 @@ svg#board {
   flex: none;
   width: 100%;
   height: auto;
-  max-height: calc(100vh - var(--hh, 68px) - var(--fh, 60px) - 40px);
+  max-height: calc(100vh - var(--hh, 68px) - 40px);
   overflow: visible;
   background-color: #fff;
-}
-
-.bottom-bar {
-  position: fixed;
-  z-index: 5;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  margin-top: 18px;
-  padding: var(--reg);
-}
-
-.bottom-bar>div {
-  display: flex;
-  align-items: center;
-  gap: var(--reg);
-  flex-wrap: wrap;
 }
 
 aside {
@@ -495,16 +481,6 @@ aside>* {
   overflow: auto;
 }
 
-.menu-anchor.up .ctx-menu {
-  top: auto;
-  bottom: calc(100% + 4px);
-}
-
-.menu-anchor.right .ctx-menu {
-  left: auto;
-  right: 0;
-}
-
 /* Closed state moves the panel off-screen instead of display:none — a
    hidden/display:none field can never receive focus, and #text/#subtitle
    live inside these panels but still need to be focusable (via canvas
@@ -522,7 +498,7 @@ aside>* {
   min-width: 220px;
 }
 
-#textAppearanceMenu, #settingsMenu {
+#textAppearanceMenu {
   min-width: 280px;
 }
 
@@ -553,7 +529,7 @@ aside>* {
   padding: 4px 6px 0;
 }
 
-/* Colour swatch lists: subColourList / stSubColourList */
+/* Colour swatch list: subColourList */
 .menu-list {
   max-height: 25vh;
   overflow: auto;
