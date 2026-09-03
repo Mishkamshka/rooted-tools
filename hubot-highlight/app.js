@@ -434,6 +434,34 @@ $('dateYear').innerHTML=yearOptionsHTML;
 $('dateMonth').addEventListener('change',function(){ pushHistory(); S.dateMonth=+this.value; render(); });
 $('dateYear').addEventListener('change',function(){ pushHistory(); S.dateYear=+this.value; render(); });
 
+/* Shared open/close animation for every dynamically created menu/popover
+   (the board menu, word/subtitle/date popovers, the colour-preset flyout —
+   anything appended to <body> and removed outright, as opposed to the
+   header dropdowns' persistent .closed-toggled elements, which animate via
+   CSS alone). popIn scales+fades an already-appended element up from its
+   closed look; popOut reverses that and only removes the element once the
+   transition has actually finished playing, so closing looks the same as
+   opening in reverse instead of just vanishing. */
+const MENU_ANIM_MS=150;
+function popIn(el){
+  el.style.opacity='0';
+  el.style.transform='scale(.8)';
+  el.style.transition='opacity '+MENU_ANIM_MS+'ms ease, transform '+MENU_ANIM_MS+'ms ease';
+  /* Two nested rAFs, not one — a single one can still land in the same
+     style-recalc as the initial opacity:0/scale:.8 above, which would
+     make the transition have nothing to animate from and just snap
+     straight to the end state. */
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){ el.style.opacity='1'; el.style.transform='scale(1)'; });
+  });
+}
+function popOut(el){
+  el.style.pointerEvents='none';
+  el.style.opacity='0';
+  el.style.transform='scale(.8)';
+  setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); },MENU_ANIM_MS);
+}
+
 /* The right-click word popover: hovering a preset previews it live on the
    canvas (same pattern as the panel colour combos); moving off without
    clicking reverts to whatever the word had before the popover opened;
@@ -442,7 +470,7 @@ let activeWordPopover=null; /* {el,revert} for the currently open popover, if an
 function closeWordPopover(cancel){
   if(!activeWordPopover) return;
   if(cancel) activeWordPopover.revert();
-  activeWordPopover.el.remove();
+  popOut(activeWordPopover.el);
   activeWordPopover=null;
 }
 /* Capture phase, not bubble — the header dropdown buttons (initToggleMenu,
@@ -470,6 +498,7 @@ function openWordPopover(gidx,clientX,clientY){
     '<button type="button" data-p="swap">&#8646; Swap this word\'s colours</button>'+
     '<button type="button" data-p="clear">Clear override</button>';
   document.body.appendChild(el);
+  popIn(el);
 
   const original=S.wordColors[gidx]; /* undefined if this word has no override yet */
   let open=true;
@@ -496,7 +525,7 @@ function openWordPopover(gidx,clientX,clientY){
     pushHistory();
     apply(colorsFor(p));
     render();
-    el.remove();
+    popOut(el);
     activeWordPopover=null;
   }
 
@@ -527,6 +556,7 @@ function openSubtitlePopover(clientX,clientY){
       '<span style="width:14px;height:14px;border-radius:50%;background:'+c.hex+';border:1px solid var(--rule);flex:none"></span>'+
       '<span class="name">'+c.name+'</span></button>').join('');
   document.body.appendChild(el);
+  popIn(el);
 
   const original=S.subColor;
   let open=true;
@@ -539,7 +569,7 @@ function openSubtitlePopover(clientX,clientY){
     pushHistory();
     apply(PALETTE[+p].hex);
     render();
-    el.remove();
+    popOut(el);
     activeWordPopover=null;
   }
   el.addEventListener('mouseover',function(e){
@@ -572,6 +602,7 @@ function openDatePopover(clientX,clientY){
     '<button type="button" data-p="swap">&#8646; Swap colours</button>'+
     '<button type="button" data-p="clear">Match title colours</button>';
   document.body.appendChild(el);
+  popIn(el);
 
   const original={font:S.dateColor,pad:S.datePadColor};
   let open=true;
@@ -590,7 +621,7 @@ function openDatePopover(clientX,clientY){
     pushHistory();
     apply(colorsFor(p));
     render();
-    el.remove();
+    popOut(el);
     activeWordPopover=null;
   }
   el.addEventListener('mouseover',function(e){
@@ -622,7 +653,7 @@ let activeBoardMenu=null; /* {el} */
 let activeColorSubmenu=null; /* {el} */
 function closeColorSubmenu(){
   if(!activeColorSubmenu) return;
-  activeColorSubmenu.el.remove();
+  popOut(activeColorSubmenu.el);
   activeColorSubmenu=null;
 }
 /* Capture phase — see the matching comment on activeWordPopover's listener. */
@@ -659,10 +690,21 @@ function openColorPresetSubmenu(anchorBtn,getState,setState,onCommit){
   let left=r.right+4;
   if(left+w>window.innerWidth) left=r.left-w-4;
   el.style.left=Math.max(4,left)+'px';
+  /* after positioning, not before — popIn's scale transform would otherwise
+     throw off the getBoundingClientRect() width measurement above */
+  popIn(el);
 
   const original=getState();
-  function preview(p){ setState({font:p.font,pad:p.pad}); render(); }
-  function revert(){ setState(original); render(); }
+  /* Guards mouseleave the same way open/committed does in the word/subtitle/
+     date popovers: closeColorSubmenu()'s popOut() sets pointer-events:none
+     on this element while it fades out rather than removing it outright, and
+     that alone is enough for the browser to synthesise a mouseleave on it
+     (the cursor visually still over it no longer resolves to anything
+     interactive) — without this guard, that late mouseleave calls revert()
+     right after a click had just committed a colour, undoing it instantly. */
+  let open=true;
+  function preview(p){ if(!open) return; setState({font:p.font,pad:p.pad}); render(); }
+  function revert(){ if(!open) return; setState(original); render(); }
   el.addEventListener('mouseover',function(e){
     const b=e.target.closest('button'); if(!b) return;
     preview(PRESETS[+b.dataset.i]);
@@ -671,6 +713,7 @@ function openColorPresetSubmenu(anchorBtn,getState,setState,onCommit){
   el.addEventListener('click',function(e){
     const b=e.target.closest('button'); if(!b) return;
     revert();
+    open=false;
     pushHistory();
     const p=PRESETS[+b.dataset.i];
     setState({font:p.font,pad:p.pad});
@@ -725,7 +768,7 @@ function closeBoardMenu(){
   closeColorSubmenu();
   if(!activeBoardMenu) return;
   activeBoardMenu.revertSwap();
-  activeBoardMenu.el.remove();
+  popOut(activeBoardMenu.el);
   activeBoardMenu=null;
 }
 /* Capture phase — see the matching comment on activeWordPopover's listener.
@@ -755,6 +798,7 @@ function openBoardMenu(clientX,clientY){
     '<hr>'+
     '<button type="button" data-a="swap">Swap colours</button>';
   document.body.appendChild(el);
+  popIn(el);
 
   const swap=makeSwapHover(titleColourState.get,titleColourState.set);
   el.addEventListener('mouseover',function(e){

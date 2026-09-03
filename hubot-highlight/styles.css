@@ -401,6 +401,7 @@ aside>* {
   display: flex;
   flex-direction: column;
   min-width: 20vw;
+  transform-origin: top left;
 }
 
 .ctx-menu button {
@@ -479,17 +480,14 @@ aside>* {
   width: 15vw;
   max-height: 90vh;
   overflow: auto;
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity .25s ease, transform .15s ease;
 }
 
-/* Closed state moves the panel off-screen instead of display:none — a
-   hidden/display:none field can never receive focus, and #text/#subtitle
-   live inside these panels but still need to be focusable (via canvas
-   click, to drop the text cursor) even while their panel is visually
-   closed. Off-screen keeps that working without the panel appearing. */
 .menu-anchor .ctx-menu.closed {
-  position: fixed;
-  top: -99999px;
-  left: -99999px;
+  opacity: 0;
+  transform: scale(.8);
   pointer-events: none;
 }
 
@@ -640,6 +638,7 @@ aside>* {
   border: 1px solid var(--ink);
   background: #fff;
   box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
+  transform-origin: top left;
 }
 
 .popover button {
