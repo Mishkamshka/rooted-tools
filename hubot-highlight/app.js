@@ -52,7 +52,7 @@ const YEAR_MIN=2020, YEAR_MAX=2040;
 function defaultState(){
   const now=new Date();
   return {
-    text:'Rooted, The Centre for\n Reparative Innovation',
+    text:'The Centre for Reparative Innovation',
     subtitle:'', subColor:'#4D1061', subtitleOn:false,
     dateOn:false, dateColor:'#4D1061', datePadColor:'#A87BFE',
     dateMonth:now.getMonth()+1, dateYear:clamp(now.getFullYear(),YEAR_MIN,YEAR_MAX),
@@ -80,6 +80,45 @@ window.addEventListener('beforeunload',function(e){
 
 const board=document.getElementById('board');
 const $=id=>document.getElementById(id);
+/* Safari fires a genuine 'click' right after 'mouseup' for a right-click or
+   Ctrl+click — Chrome and Firefox fire neither a 'click' nor even a
+   'mousedown' for that gesture — so whatever the 'contextmenu' just opened
+   (the board menu, a word/subtitle/date popover) reads that phantom click
+   as "clicked outside itself" and closes right back up. Confirmed directly
+   from Safari: contextmenu → (however long the button is held, no cap) →
+   mouseup → click, all still reporting button 0. A short timer to clear
+   the suppression doesn't work since that gap is exactly as long as the
+   user holds the button, not a fixed handful of milliseconds — so instead
+   this arms on 'contextmenu' and only disarms when a 'click' actually
+   consumes it, however much later that turns out to be. A plain unrelated
+   left-click is protected from ever being wrongly swallowed by a stale
+   flag (e.g. Chrome/Firefox, where no phantom click ever arrives to
+   consume it) because its own 'mousedown' resets the flag first — and
+   'mousedown' reliably precedes 'click' for every gesture except the
+   right-click/Ctrl+click one this exists to catch. */
+let suppressNextClick=false;
+document.addEventListener('mousedown',function(){ suppressNextClick=false; },true);
+document.addEventListener('contextmenu',function(){
+  suppressNextClick=true;
+  /* Only one menu/popover open at a time, system-wide — a fresh right-click
+     anywhere (the board, a word, the subtitle, the date) tears down
+     whatever else is currently open first: the header dropdowns
+     (Load/Save/Export/Add subtitle/Add date/Text appearance), the board's
+     own right-click menu, and the word/subtitle/date popover system (they
+     all share activeWordPopover, closing whichever of the three is open).
+     Each individual open* function already guards against redundantly
+     closing itself right before reopening, so this is safe to call
+     unconditionally on every right-click regardless of what it's about to
+     open. All three functions are defined further down but hoisted, and
+     this only ever runs later in response to a real right-click, well
+     after the whole script has loaded. */
+  closeAllMenus();
+  closeBoardMenu();
+  closeWordPopover(true);
+},true);
+document.addEventListener('click',function(e){
+  if(suppressNextClick){ suppressNextClick=false; e.stopImmediatePropagation(); }
+},true);
 function flash(m){ const el=$('status'); el.textContent=m; clearTimeout(flash.t); flash.t=setTimeout(()=>el.textContent='',3200); }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 function twoTone(pad,font){ return 'linear-gradient(135deg,'+pad+' 50%,'+font+' 50%)'; }
@@ -406,9 +445,15 @@ function closeWordPopover(cancel){
   activeWordPopover.el.remove();
   activeWordPopover=null;
 }
+/* Capture phase, not bubble — the header dropdown buttons (initToggleMenu,
+   Save) call stopPropagation() on their own click, which would otherwise
+   stop this listener (registered on document, a bubble-phase ancestor)
+   from ever seeing that click and this popover would stay open regardless
+   of what else the user clicked. Capture fires on the way down, before
+   stopPropagation() at the target can cut it off. */
 document.addEventListener('click',function(e){
   if(activeWordPopover&&!activeWordPopover.el.contains(e.target)&&!e.target.closest('.hit-word')) closeWordPopover(true);
-});
+},true);
 document.addEventListener('keydown',function(e){
   if(activeWordPopover&&e.key==='Escape') closeWordPopover(true);
 });
@@ -580,10 +625,11 @@ function closeColorSubmenu(){
   activeColorSubmenu.el.remove();
   activeColorSubmenu=null;
 }
+/* Capture phase — see the matching comment on activeWordPopover's listener. */
 document.addEventListener('click',function(e){
   if(activeColorSubmenu&&!activeColorSubmenu.el.contains(e.target)&&!e.target.closest('[data-a="presets"]'))
     closeColorSubmenu();
-});
+},true);
 document.addEventListener('keydown',function(e){
   if(activeColorSubmenu&&e.key==='Escape') closeColorSubmenu();
 });
@@ -682,10 +728,15 @@ function closeBoardMenu(){
   activeBoardMenu.el.remove();
   activeBoardMenu=null;
 }
+/* Capture phase — see the matching comment on activeWordPopover's listener.
+   Without this, clicking a header button (Load/Save/Export/Add subtitle/
+   Add date/Text appearance) while the board's right-click menu is open
+   left it open, since those buttons' own click handlers stopPropagation()
+   before a bubble-phase listener here would ever see the click. */
 document.addEventListener('click',function(e){
   if(activeBoardMenu&&!activeBoardMenu.el.contains(e.target)&&
      !(activeColorSubmenu&&activeColorSubmenu.el.contains(e.target))) closeBoardMenu();
-});
+},true);
 document.addEventListener('keydown',function(e){
   if(activeBoardMenu&&e.key==='Escape') closeBoardMenu();
 });

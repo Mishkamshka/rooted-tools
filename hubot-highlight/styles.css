@@ -422,7 +422,7 @@ aside>* {
 .ctx-menu button:hover:not(:disabled) {
   padding-left: .5rem;
   padding-right: .5rem;
-  border: 0;
+  border-color: transparent;
   border-radius: 1rem;
   background: var(--mid);
 }
