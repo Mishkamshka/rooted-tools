@@ -132,22 +132,26 @@ test.describe('colour selection actually applies (regression: popOut pointer-eve
 });
 
 test.describe('subtitle / date toggles', () => {
-  test('subtitle toggle button flips label and turns the subtitle on', async ({ page }) => {
+  test('subtitle toggle button flips label and gets .active, not the header trigger', async ({ page }) => {
     await page.click('#addSubtitleBtn');
     const toggle = page.locator('#subtitleToggleBtn');
     await expect(toggle).toHaveText('Show subtitle');
+    await expect(toggle).not.toHaveClass(/active/);
     await toggle.click();
     await expect(toggle).toHaveText('Hide subtitle');
-    await expect(page.locator('#addSubtitleBtn')).toHaveClass(/active/);
+    await expect(toggle).toHaveClass(/active/);
+    await expect(page.locator('#addSubtitleBtn')).not.toHaveClass(/active/);
   });
 
-  test('date toggle button flips label and turns the date on', async ({ page }) => {
+  test('date toggle button flips label and gets .active, not the header trigger', async ({ page }) => {
     await page.click('#addDateBtn');
     const toggle = page.locator('#dateToggleBtn');
     await expect(toggle).toHaveText('Show date');
+    await expect(toggle).not.toHaveClass(/active/);
     await toggle.click();
     await expect(toggle).toHaveText('Hide date');
-    await expect(page.locator('#addDateBtn')).toHaveClass(/active/);
+    await expect(toggle).toHaveClass(/active/);
+    await expect(page.locator('#addDateBtn')).not.toHaveClass(/active/);
   });
 });
 

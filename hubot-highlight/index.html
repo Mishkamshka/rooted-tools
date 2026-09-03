@@ -36,17 +36,42 @@
     <span class="lbl" id="status"></span>
   </div>
   <div class="hdr-center">
+        <div class="menu-anchor" id="textAppearanceAnchor">
+      <button type="button" id="textAppearanceBtn">Title</button>
+      <div class="ctx-menu closed" id="textAppearanceMenu">
+        <div class="font-size-section menu-bk">
+          <span class="lbl">Font size</span>
+          <div class="btn-row menu-field-lg">
+            <button data-size="150">H1</button>
+            <button data-size="100">H2</button>
+            <button data-size="50">H3</button>
+          </div>
+      </div>
+        <div class="heading-text-section menu-bk">
+        <span class="lbl menu-sublabel">Heading text</span>
+        <div class="menu-field">
+          <textarea id="text" spellcheck="true" placeholder="Edit text here"></textarea>
+        </div>
+        </div>
+        <div class="settings-text-section menu-bk">
+        <button type="button" data-a="clear">Clear overrides</button>
+        <button type="button" data-a="presets">Colour presets <span class="ctx-caret">&#9656;</span></button>
+        <button type="button" id="taToggleAllBtn" data-a="toggleAll">Un-highlight all</button>
+        <button type="button" data-a="swap">Swap colours</button>
+      </div>
+      </div>
+    </div>
     <div class="menu-anchor" id="addSubtitleAnchor">
       <button type="button" id="addSubtitleBtn">Subtitle</button>
       <div class="ctx-menu closed" id="addSubtitleMenu">
         <div class="menu-field-lg"><button type="button" id="subtitleToggleBtn">Show subtitle</button></div>
-        <div class="menu-list" id="subColourList"></div>
         <div class="addsubtext">
           <span class="lbl menu-sublabel">Subtitle text</span>
         <div class="menu-field">
           <textarea id="subtitle" spellcheck="true" placeholder="Optional line above the title"></textarea>
         </div>
         </div>
+        <div class="menu-list" id="subColourList"></div>
       </div>
     </div>
     <div class="menu-anchor" id="addDateAnchor">
@@ -68,28 +93,6 @@
           <hr>
           <button type="button" data-a="swap">Swap colours</button>
         </div>
-      </div>
-    </div>
-    <div class="menu-anchor" id="textAppearanceAnchor">
-      <button type="button" id="textAppearanceBtn">Text</button>
-      <div class="ctx-menu closed" id="textAppearanceMenu">
-        <span class="lbl">Font size</span>
-        <div class="btn-row menu-field-lg">
-          <button data-size="150">H1</button>
-          <button data-size="100">H2</button>
-          <button data-size="50">H3</button>
-        </div>
-        <span class="lbl menu-sublabel">Heading text</span>
-        <div class="menu-field">
-          <textarea id="text" spellcheck="true" placeholder="Edit text here"></textarea>
-        </div>
-        <hr>
-        <button type="button" data-a="clear">Clear overrides</button>
-        <button type="button" data-a="presets">Colour presets <span class="ctx-caret">&#9656;</span></button>
-        <hr>
-        <button type="button" id="taToggleAllBtn" data-a="toggleAll">Un-highlight all</button>
-        <hr>
-        <button type="button" data-a="swap">Swap colours</button>
       </div>
     </div>
   </div>

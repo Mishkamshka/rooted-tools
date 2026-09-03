@@ -492,7 +492,7 @@ function openWordPopover(gidx,clientX,clientY){
   el.style.left=Math.min(clientX,window.innerWidth-190)+'px';
   el.style.top=Math.min(clientY,window.innerHeight-220)+'px';
   el.innerHTML=PRESETS.map((p,i)=>
-    '<button type="button" data-p="'+i+'" style="display:flex;align-items:center;gap:7px;justify-content:flex-start">'+
+    '<button type="button" data-p="'+i+'">'+
       '<span style="width:14px;height:14px;background:'+twoTone(p.pad,p.font)+';border:1px solid var(--rule);flex:none"></span>'+
       '<span class="name">'+p.name+'</span></button>').join('')+
     '<button type="button" data-p="swap">&#8646; Swap this word\'s colours</button>'+
@@ -1184,13 +1184,12 @@ function matchPresetLabel(font,pad){
 function syncInputs(){
   $('text').value=S.text;
   $('subtitle').value=S.subtitle;
-  /* The trigger button just stays highlighted while on (.active); the
-     toggle button inside its panel carries the actual "Show X"/"Hide X"
-     state label, since the trigger's own click now opens the panel rather
-     than toggling on/off. */
-  $('addDateBtn').classList.toggle('active',S.dateOn);
+  /* The toggle button inside each panel carries both the on/off highlight
+     and the "Show X"/"Hide X" state label — the trigger button up in the
+     header just opens the panel and no longer reflects on/off state itself. */
+  $('dateToggleBtn').classList.toggle('active',S.dateOn);
   $('dateToggleBtn').textContent=S.dateOn?'Hide date':'Show date';
-  $('addSubtitleBtn').classList.toggle('active',S.subtitleOn);
+  $('subtitleToggleBtn').classList.toggle('active',S.subtitleOn);
   $('subtitleToggleBtn').textContent=S.subtitleOn?'Hide subtitle':'Show subtitle';
   $('dateMonth').value=S.dateMonth; $('dateYear').value=S.dateYear;
   document.querySelectorAll('[data-size]').forEach(function(btn){
@@ -1460,7 +1459,7 @@ function render(){
      reduced opacity to read as a placeholder. */
   const subHasText=S.subtitle.split('\n').some(l=>l.trim()!=='' );
   const subIsPlaceholder=S.subtitleOn&&!subHasText;
-  const subLines=S.subtitleOn?(subHasText?S.subtitle.split('\n'):['Edit Me']):[];
+  const subLines=S.subtitleOn?(subHasText?S.subtitle.split('\n'):['Optional line above the title']):[];
   const subM=subLines.length?metrics(subSize,trackPct):null;
   const subPitch=subSize*(S.lineHeight/100);
   const subH=subLines.length?((subLines.length-1)*subPitch+subM.cap+subM.desc):0;

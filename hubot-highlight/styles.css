@@ -27,6 +27,8 @@
   --select: #2F6F62;
   --mono: "IBM Plex Mono", monospace;
   --hubot: "Hubot Sans", sans-serif;
+  --lrg: 2rem;
+  --med: 1rem;
   --reg: .5rem;
   --sml: .25rem;
   --font-body: 12px;
@@ -74,6 +76,8 @@ h1 {
   font-family: var(--mono);
   font-size: var(--font-body);
   text-transform: uppercase;
+  padding-bottom: var(--sml);
+  display: block;
 }
 
 /* =========================================================
@@ -165,10 +169,11 @@ button {
   font-size: var(--font-button);
   letter-spacing: .02em;
   cursor: pointer;
+  transition: ease all .15s;
 }
 
 button:hover:not(:disabled) {
-  background: var(--ink);
+  background: var(--mid);
   color: #fff;
 }
 
@@ -184,7 +189,7 @@ button.active {
 
 .btn-row {
   display: flex;
-  gap: 8px;
+  gap: var(--sml);
 }
 
 .btn-row button {
@@ -226,7 +231,7 @@ button.active {
 .alt-list label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sml);
   font-size: var(--font-body);
   cursor: pointer;
 }
@@ -400,8 +405,9 @@ aside>* {
   z-index: 55;
   display: flex;
   flex-direction: column;
-  min-width: 20vw;
+  min-width: 25vw;
   transform-origin: top left;
+  gap: var(--sml);
 }
 
 .ctx-menu button {
@@ -425,7 +431,6 @@ aside>* {
   padding-right: .5rem;
   border-color: transparent;
   border-radius: 1rem;
-  background: var(--mid);
 }
 
 .ctx-menu button.active {
@@ -448,8 +453,11 @@ aside>* {
 .ctx-menu .btn-row button {
   width: auto;
   flex: 1;
-  border: 1px solid var(--ink);
+  border: none;
   justify-content: center;
+  padding: var(--reg);
+  background: #fff;
+  border-radius: var(--reg);
 }
 
 .ctx-menu .combo-trigger {
@@ -475,14 +483,14 @@ aside>* {
 .menu-anchor .ctx-menu {
   position: absolute;
   z-index: 56;
-  top: calc(100% + 4px);
+  top: calc(100% + var(--sml));
   left: 0;
   width: 15vw;
   max-height: 90vh;
   overflow: auto;
   opacity: 1;
   transform: scale(1);
-  transition: opacity .25s ease, transform .15s ease;
+  transition: ease all .15s;
 }
 
 .menu-anchor .ctx-menu.closed {
@@ -504,8 +512,14 @@ aside>* {
   display: none;
 }
 
+.menu-bk{
+  padding: 1rem var(--reg) var(--reg);
+  border: 1px solid var(--light);
+  border-radius: 1rem;
+  background: var(--white);
+}
+
 .adddate {
-  margin-bottom: var(--sml);
   padding: 0.5rem var(--reg);
   border: 1px solid var(--light);
   border-radius: 1rem;
@@ -513,7 +527,6 @@ aside>* {
 }
 
 .addsubtext {
-  margin-top: var(--sml);
   padding: 1rem var(--reg) var(--reg);
   border: 1px solid var(--light);
   border-radius: 1rem;
@@ -524,7 +537,7 @@ aside>* {
    default; the ones sitting right under something else with no divider
    above (a colour list, a preceding label) don't need it. */
 .ctx-menu > .lbl {
-  padding: 4px 6px 0;
+  padding: var(--reg);
 }
 
 /* Colour swatch list: subColourList */
@@ -539,11 +552,6 @@ aside>* {
 
 .menu-field {
   display: flex;
-  margin-top: var(--reg);
-}
-
-.menu-field-lg {
-  padding: 4px 6px 8px;
 }
 
 /* Add date's month/year row is the first thing in its panel (no label
@@ -581,7 +589,7 @@ aside>* {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 8px;
+  gap: var(--sml);
 }
 
 .combo-trigger .combo-caret {
@@ -613,12 +621,13 @@ aside>* {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 8px;
+  gap: var(--sml);
   width: 100%;
-  padding: var(--reg) 0;
+  padding: var(--med) 0;
   border: none;
   text-align: left;
   cursor: pointer;
+  transition: ease all .15s;
 }
 
 .combo-item:last-child {
@@ -632,18 +641,27 @@ aside>* {
   z-index: 50;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--sml);
   min-width: 170px;
-  padding: 8px;
-  border: 1px solid var(--ink);
-  background: #fff;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
+  padding: var(--sml);
+  border: 1px solid var(--light);
+  background: var(--white);
   transform-origin: top left;
+  border-radius: 1rem;
+  box-shadow: 0 4px 14px rgb(220 218 210 / 54%);
+  max-height: 30vh;
+  overflow-y: scroll;
 }
 
 .popover button {
   width: auto;
   font-family: var(--mono);
+  display: flex;
+  align-items: center;
+  gap: var(--sml);
+  justify-content: flex-start;
+  padding: var(--med) var(--sml) !important;
+  border-bottom: 1px solid var(--light);
 }
 
 .popover .name {
@@ -656,7 +674,7 @@ aside>* {
 .saved-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sml);
   padding: 5px 4px;
 }
 
@@ -744,6 +762,28 @@ aside>* {
   text-align: left;
 }
 
+
+button#subtitleToggleBtn {
+    padding: 1rem;
+    border-radius: 1rem;
+}
+
+.settings-text-section button {
+    padding: 1rem;
+}
+
+.settings-text-section.menu-bk {
+    padding-top: var(--reg);
+}
+
+#textAppearanceMenu button.active {
+    color: var(--ink);
+    background: var(--mid);
+}
+
+.popover button:hover {
+    border-radius: 1rem;
+}
 /* =========================================================
    6. Animations
    ========================================================= */
