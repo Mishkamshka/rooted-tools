@@ -543,7 +543,7 @@ aside>* {
 /* Colour swatch list: subColourList */
 .menu-list {
   max-height: 25vh;
-  overflow: auto;
+  overflow-y: scroll;
   padding: 0.5rem;
   border: 1px solid var(--light);
   border-radius: 1rem;
