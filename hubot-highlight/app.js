@@ -1347,7 +1347,17 @@ function render(){
 
   /* ---- title: tokenize, wrap, measure ---- */
   const paragraphs=tokenize(S.text);
-  const frameWidth=S.frame.width;
+  /* Before the frame's ever been touched, S.frame.width is null — wrapParagraph
+     treats that as "don't wrap at all," which is fine as long as the text
+     actually fits on one line. When it doesn't (long text, large font size,
+     no manual resize yet), the unwrapped line just runs off both edges of
+     the canvas, since nothing caps it. Wrapping against the canvas's own
+     width (MAX_FRAME_W) in that case — rather than skipping wrapping
+     outright — keeps the auto/unresized state consistent with what a
+     resize immediately produces, without needing S.frame.width itself to
+     become non-null (the frame still reads as "auto-sized", not "manually
+     resized to 1920"). */
+  const frameWidth=S.frame.width==null?MAX_FRAME_W:S.frame.width;
   const visualLines=[];
   paragraphs.forEach(function(p){ wrapParagraph(p,style,frameWidth).forEach(l=>visualLines.push(l)); });
 
