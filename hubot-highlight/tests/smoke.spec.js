@@ -173,6 +173,45 @@ test.describe('save / load', () => {
   });
 });
 
+test.describe('title resize frame visibility', () => {
+  test('hidden on load, shows on hovering the canvas, hides again once the pointer leaves it', async ({ page }) => {
+    const frame = page.locator('#board .resize-frame');
+    await expect(frame).toHaveCSS('opacity', '0');
+
+    const board = page.locator('#board');
+    const box = await board.boundingBox();
+    // an empty part of the canvas, deliberately not on the title itself —
+    // the whole canvas is the hover target, not just the words
+    await page.mouse.move(box.x + box.width - 40, box.y + 40);
+    await expect(frame).toHaveCSS('opacity', '1');
+
+    await page.mouse.move(box.x - 100, box.y - 100); // off the canvas entirely
+    await expect(frame).toHaveCSS('opacity', '0');
+  });
+
+  test('shows while the title text field is focused, even without hovering', async ({ page }) => {
+    const frame = page.locator('#board .resize-frame');
+    await page.evaluate(() => document.getElementById('text').focus());
+    await expect(frame).toHaveCSS('opacity', '1');
+    await page.mouse.move(50, 800); // outside the canvas
+    await expect(frame).toHaveCSS('opacity', '1'); // still focused, so still visible
+  });
+
+  test('stays visible for the whole drag even if the pointer leaves the canvas', async ({ page }) => {
+    const frame = page.locator('#board .resize-frame');
+    const handle = page.locator('.frame-handle.resize');
+    await page.locator('.hit-word').first().hover(); // reveal it first, so the handle is interactable
+    const box = await handle.boundingBox();
+
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(50, 800, { steps: 5 }); // drag far outside the canvas
+    await expect(frame).toHaveCSS('opacity', '1'); // still mid-drag
+    await page.mouse.up();
+    await expect(frame).toHaveCSS('opacity', '0'); // released, and not hovering/focused anymore
+  });
+});
+
 test.describe('fresh-load layout', () => {
   test('the default title wraps to fit the canvas instead of overflowing it', async ({ page }) => {
     // regression: S.frame.width starts null, which used to skip wrapping

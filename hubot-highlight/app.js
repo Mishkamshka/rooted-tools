@@ -1355,6 +1355,20 @@ function buildLine(words,style,defaultFill,wordColorFn){
 
 /* ---------- render ---------- */
 let lastAutoFrame=null;
+/* The resize frame/handle only shows while it's actually relevant — hovering
+   the canvas, editing the title text, or already mid-drag — rather than
+   sitting there permanently. All three are re-checked fresh at the top of
+   every render() (see frameActive below). frameHovered is driven by a
+   mouseenter/mouseleave pair attached once to `board` itself (see below,
+   outside render()) rather than to anything render() creates — board is
+   never destroyed/recreated the way its children are on every render(), so
+   there's no risk of the listener's own element vanishing out from under a
+   still-hovering pointer, and no need to debounce a handoff between two
+   separately-recreated elements the way initHoverPanel does. */
+let frameHovered=false;
+let frameDragging=false;
+board.addEventListener('mouseenter',function(){ if(!frameHovered){ frameHovered=true; render(); } });
+board.addEventListener('mouseleave',function(){ if(frameHovered){ frameHovered=false; render(); } });
 
 function render(){
   const size=S.fontSize;
@@ -1384,7 +1398,7 @@ function render(){
   const subG=document.createElementNS(NS,'g');
   const dateG=document.createElementNS(NS,'g');
   const hitG=document.createElementNS(NS,'g'); hitG.setAttribute('class','ui-only');
-  const frameG=document.createElementNS(NS,'g'); frameG.setAttribute('class','ui-only');
+  const frameG=document.createElementNS(NS,'g'); frameG.setAttribute('class','ui-only resize-frame');
   const caretG=document.createElementNS(NS,'g'); caretG.setAttribute('class','ui-only');
   contentG.appendChild(rectG); contentG.appendChild(subG); contentG.appendChild(textG); contentG.appendChild(dateG);
   board.appendChild(contentG); board.appendChild(hitG); board.appendChild(frameG); board.appendChild(caretG);
@@ -1498,6 +1512,7 @@ function render(){
   const activeTextField=(document.activeElement===$('text'))?$('text'):null;
   const caretTarget=activeTextField
     ?offsetToWordPosition(S.text,activeTextField.selectionStart):null;
+
   visualLines.forEach(function(line,i){
     const baseline=firstBaseline+i*pitch;
     const delta=targetLeft-lineBox[i].x;
@@ -1753,6 +1768,16 @@ function render(){
 
   attachDrag(resizeH);
 
+  /* The frame/handle only needs to be visible while it's actually relevant:
+     hovering the canvas (frameHovered, see the board-level listener near
+     render()'s own declaration), editing the title text (activeTextField,
+     already computed above for the caret), or mid-drag (frameDragging —
+     stays true for the drag's whole duration even if the pointer strays
+     outside the canvas while dragging). */
+  const frameActive=frameHovered||frameDragging||!!activeTextField;
+  frameG.style.opacity=frameActive?'1':'0';
+  frameG.style.pointerEvents=frameActive?'auto':'none';
+
   /* Keeps the Highlight/Un-highlight all toggle's label matching real
      state even when nothing about it was clicked directly — a per-word
      double-click, a right-click popover swap, anything touching S.off runs
@@ -1771,6 +1796,7 @@ function attachDrag(el){
     e.preventDefault(); e.stopPropagation();
     ensureFrame();
     pushHistory();
+    frameDragging=true;
     const start=svgPoint(e);
     const startFrame={width:S.frame.width};
     function onMove(ev){
@@ -1782,6 +1808,11 @@ function attachDrag(el){
     function onUp(){
       window.removeEventListener('pointermove',onMove);
       window.removeEventListener('pointerup',onUp);
+      frameDragging=false;
+      /* re-checks frameHovered/activeTextField now that the drag is over —
+         without this the frame would stay visible until something else
+         happened to trigger another render() */
+      render();
     }
     window.addEventListener('pointermove',onMove);
     window.addEventListener('pointerup',onUp);
