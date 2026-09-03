@@ -340,48 +340,23 @@ $('text').addEventListener('keyup',function(){ render(); });
 $('text').addEventListener('click',function(){ render(); });
 $('subtitle').addEventListener('input',function(){ pushHistoryCoalesced(); S.subtitle=$('subtitle').value; render(); });
 
-$('addDateBtn').addEventListener('click',function(){
-  pushHistory();
-  S.dateOn=!S.dateOn;
-  syncInputs(); render();
-});
-$('addSubtitleBtn').addEventListener('click',function(){
+/* Add subtitle and Add date open their panel on click, like every other
+   header dropdown — the on/off toggle lives inside the panel itself
+   (subtitleToggleBtn/dateToggleBtn) rather than being reserved for the
+   trigger button's own click, so opening the panel to peek at or edit the
+   colour/text/month/year never requires it to be switched on first. */
+initToggleMenu('addSubtitleBtn','addSubtitleMenu');
+initToggleMenu('addDateBtn','addDateMenu');
+$('subtitleToggleBtn').addEventListener('click',function(){
   pushHistory();
   S.subtitleOn=!S.subtitleOn;
   syncInputs(); render();
 });
-/* Add subtitle and Add date both open their panel on hover, not click —
-   click is reserved for the on/off toggle, so the two are independent:
-   hovering to peek at or edit the colour/text/month/year doesn't require
-   it to be switched on first, and toggling it on/off doesn't open or close
-   the panel. A short close delay survives the mouse crossing the small gap
-   from the button to the panel without flickering shut. */
-/* Returns cancelClose/scheduleClose so a colour-preset flyout opened from
-   inside this panel (a sibling in <body>, not a DOM descendant of the
-   anchor) can borrow the same open/close timer — otherwise moving the
-   mouse off the anchor and into the flyout reads as "left the panel" and
-   closes it out from under the flyout. */
-function initHoverPanel(anchorId,menuId){
-  const anchor=$(anchorId), menu=$(menuId);
-  let closeT=null;
-  function cancelClose(){ clearTimeout(closeT); }
-  function scheduleClose(){
-    cancelClose();
-    /* also drops any colour-preset flyout still open from this panel —
-       once the panel itself is gone that submenu would otherwise be left
-       floating with nothing left to anchor it (its own mouseenter/leave
-       only defer this same timer, they don't close it independently) */
-    closeT=setTimeout(function(){ menu.classList.add('closed'); closeColorSubmenu(); },150);
-  }
-  anchor.addEventListener('mouseenter',function(){
-    cancelClose();
-    menu.classList.remove('closed');
-  });
-  anchor.addEventListener('mouseleave',scheduleClose);
-  return {cancelClose:cancelClose,scheduleClose:scheduleClose};
-}
-initHoverPanel('addSubtitleAnchor','addSubtitleMenu');
-const addDateHover=initHoverPanel('addDateAnchor','addDateMenu');
+$('dateToggleBtn').addEventListener('click',function(){
+  pushHistory();
+  S.dateOn=!S.dateOn;
+  syncInputs(); render();
+});
 /* Plain always-expanded swatch list (not a collapsed trigger+menu combo) —
    same hover-preview/click-to-commit convention as every other colour
    control here. */
@@ -614,12 +589,8 @@ document.addEventListener('keydown',function(e){
 });
 /* getState/setState let this same submenu serve either the title's colours
    (S.fontColor/S.padColor) or the date's (S.dateColor/S.datePadColor) —
-   whichever the caller passes in. hoverController (optional) is the opening
-   panel's own cancelClose/scheduleClose (see initHoverPanel) — needed only
-   when that panel is hover-triggered, so moving the mouse into this
-   submenu (a sibling in <body>, not a descendant of the panel) doesn't read
-   as having left it. */
-function openColorPresetSubmenu(anchorBtn,getState,setState,onCommit,hoverController){
+   whichever the caller passes in. */
+function openColorPresetSubmenu(anchorBtn,getState,setState,onCommit){
   closeColorSubmenu();
   const r=anchorBtn.getBoundingClientRect();
   const el=document.createElement('div');
@@ -627,22 +598,16 @@ function openColorPresetSubmenu(anchorBtn,getState,setState,onCommit,hoverContro
   let left=r.right+4;
   if(left+190>window.innerWidth) left=r.left-190-4;
   el.style.left=Math.max(4,left)+'px';
-  /* aligned to the parent menu's own bottom edge ("baseline") — the edge
-     grounded against the trigger button — rather than the hovered button's
-     own position, so the two menus read as sitting on one shared line
-     regardless of which item within the parent was hovered. */
-  const parentMenu=anchorBtn.closest('.ctx-menu')||anchorBtn.parentElement;
-  const pr=parentMenu.getBoundingClientRect();
-  el.style.bottom=Math.max(4,window.innerHeight-pr.bottom)+'px';
+  /* aligned to the "Colour presets" row itself, not the parent panel — a
+     panel like Text appearance has other sections above this row, so
+     aligning to the panel's own top edge would leave the flyout floating
+     well above whatever was actually hovered. */
+  el.style.top=Math.max(4,r.top)+'px';
   el.innerHTML=PRESETS.map((p,i)=>
     '<button type="button" data-i="'+i+'" style="display:flex;align-items:center;gap:7px;justify-content:flex-start">'+
       '<span style="width:14px;height:14px;background:'+twoTone(p.pad,p.font)+';border:1px solid var(--rule);flex:none"></span>'+
       '<span class="name">'+p.name+'</span></button>').join('');
   document.body.appendChild(el);
-  if(hoverController){
-    el.addEventListener('mouseenter',hoverController.cancelClose);
-    el.addEventListener('mouseleave',hoverController.scheduleClose);
-  }
 
   const original=getState();
   function preview(p){ setState({font:p.font,pad:p.pad}); render(); }
@@ -832,16 +797,21 @@ function snapshotLayout(id,name){
 let layouts=loadLayouts();
 let currentSaveId=null;
 
-/* ============ header/footer dropdown menus ============ */
-/* Generic open/close for the new Load/Save/Export/Text appearance
-   menus — each is a .ctx-menu nested in a .menu-anchor (position:relative)
-   wrapper, toggled by its own trigger button. Independent of the older
-   per-word/board-context-menu/combo popover systems, which manage their own
-   elements and close-on-outside-click already. */
+/* ============ header dropdown menus ============ */
+/* Generic open/close for the header's Load/Save/Export/Add subtitle/Add
+   date/Text appearance menus — each is a .ctx-menu nested in a .menu-anchor
+   (position:relative) wrapper, toggled by its own trigger button, with only
+   one open at a time. Independent of the older per-word/board-context-menu/
+   combo popover systems, which manage their own elements and
+   close-on-outside-click already. */
 let openMenuEls=[];
 function closeAllMenus(){
   openMenuEls.forEach(m=>{ m.classList.add('closed'); });
   openMenuEls=[];
+  /* also drops any colour-preset flyout left over from whichever menu just
+     closed — it's a sibling in <body>, not a DOM descendant of the panel,
+     so it doesn't disappear on its own when the panel does */
+  closeColorSubmenu();
 }
 function showMenu(menu){
   closeAllMenus();
@@ -864,23 +834,24 @@ function initToggleMenu(btnId,menuId,onOpen){
   });
 }
 initToggleMenu('exportMenuBtn','exportMenu');
-/* Text appearance opens on hover, like Add subtitle/Add date, rather than
-   click-to-toggle like Load/Save/Export — it has no on/off state
-   of its own to reserve the click for, so hover-only is enough. */
-const textAppearanceHover=initHoverPanel('textAppearanceAnchor','textAppearanceMenu');
+/* Text appearance opens on click now too, like every other header
+   dropdown — it has no on/off state of its own, so there's nothing left
+   that needed hover to stay independent of a click. */
+initToggleMenu('textAppearanceBtn','textAppearanceMenu');
 
 /* Text appearance also carries its own copy of Clear overrides/Colour
    presets/Highlight all/Un-highlight all/Swap colours — same actions as the
    board's right-click menu, reachable here too. Shares the colour-preset
    submenu and swap-hover-preview logic with that menu (see openBoardMenu).
-   None of these force the panel closed afterward — like Add subtitle/Add
-   date, it just closes naturally once the mouse leaves it. */
+   None of these close the panel afterward — clicking one just applies it,
+   leaving the panel open for further adjustments until it's dismissed like
+   any other header dropdown (its own trigger, an outside click, Escape). */
 (function initTextAppearanceColourActions(){
   const menu=$('textAppearanceMenu');
   const swap=makeSwapHover(titleColourState.get,titleColourState.set);
   menu.addEventListener('mouseover',function(e){
     const b=e.target.closest('button[data-a]'); if(!b) return;
-    if(b.dataset.a==='presets'){ openColorPresetSubmenu(b,titleColourState.get,titleColourState.set,null,textAppearanceHover); swap.revertSwap(); }
+    if(b.dataset.a==='presets'){ openColorPresetSubmenu(b,titleColourState.get,titleColourState.set,null); swap.revertSwap(); }
     else if(b.dataset.a==='swap'){ closeColorSubmenu(); swap.previewSwap(); }
     else{ closeColorSubmenu(); swap.revertSwap(); }
   });
@@ -898,14 +869,13 @@ const textAppearanceHover=initHoverPanel('textAppearanceAnchor','textAppearanceM
 
 /* The date's own colour controls — Match title colours / Colour presets
    (flyout) / Swap colours. onAction runs after any of the three commits, so
-   the caller can decide what "done" means for its own menu style — the
-   hover panel just lets it be, closing naturally on mouseleave. */
-function initDateColourActions(menuId,onAction,hoverController){
+   the caller can decide what "done" means for its own menu style. */
+function initDateColourActions(menuId,onAction){
   const menu=$(menuId);
   const swap=makeSwapHover(dateColourState.get,dateColourState.set);
   menu.addEventListener('mouseover',function(e){
     const b=e.target.closest('button[data-a]'); if(!b) return;
-    if(b.dataset.a==='presets'){ openColorPresetSubmenu(b,dateColourState.get,dateColourState.set,onAction,hoverController); swap.revertSwap(); }
+    if(b.dataset.a==='presets'){ openColorPresetSubmenu(b,dateColourState.get,dateColourState.set,onAction); swap.revertSwap(); }
     else if(b.dataset.a==='swap'){ closeColorSubmenu(); swap.previewSwap(); }
     else{ closeColorSubmenu(); swap.revertSwap(); }
   });
@@ -924,7 +894,7 @@ function initDateColourActions(menuId,onAction,hoverController){
     if(onAction) onAction();
   });
 }
-initDateColourActions('addDateMenu',null,addDateHover);
+initDateColourActions('addDateMenu',null);
 
 function savedRowsHTML(){
   const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1114,13 +1084,14 @@ function matchPresetLabel(font,pad){
 function syncInputs(){
   $('text').value=S.text;
   $('subtitle').value=S.subtitle;
-  /* The button's own label doubles as its state indicator ("Show subtitle"
-     / "Hide subtitle") — visible without checking anywhere else, since the
-     panel opens upward from this button and never covers it. */
+  /* The trigger button just stays highlighted while on (.active); the
+     toggle button inside its panel carries the actual "Show X"/"Hide X"
+     state label, since the trigger's own click now opens the panel rather
+     than toggling on/off. */
   $('addDateBtn').classList.toggle('active',S.dateOn);
-  $('addDateBtn').textContent=S.dateOn?'Hide date':'Show date';
+  $('dateToggleBtn').textContent=S.dateOn?'Hide date':'Show date';
   $('addSubtitleBtn').classList.toggle('active',S.subtitleOn);
-  $('addSubtitleBtn').textContent=S.subtitleOn?'Hide subtitle':'Show subtitle';
+  $('subtitleToggleBtn').textContent=S.subtitleOn?'Hide subtitle':'Show subtitle';
   $('dateMonth').value=S.dateMonth; $('dateYear').value=S.dateYear;
   document.querySelectorAll('[data-size]').forEach(function(btn){
     btn.classList.toggle('active',+btn.dataset.size===S.fontSize);
