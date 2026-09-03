@@ -1655,7 +1655,7 @@ function render(){
       const lineStart=subLines.slice(0,i).reduce((a,l)=>a+l.length+1,0);
       const t=document.createElementNS(NS,'text');
       t.setAttribute('style',subStyle); t.setAttribute('fill',S.subColor);
-      if(subIsPlaceholder) t.setAttribute('opacity','0.35');
+      if(subIsPlaceholder);
       t.setAttribute('x',targetLeft); t.setAttribute('y',sy);
       t.textContent=lineText;
       subG.appendChild(t);
