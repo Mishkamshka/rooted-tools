@@ -1,13 +1,13 @@
 @font-face {
-  font-family: "Hubot Sans", sans-serif;
+  font-family: "Hubot Sans";
   src: url('hubot-sans.ttf') format('truetype');
   font-optical-sizing: auto;
   font-style: normal;
-  font-weight: 425;
+  font-weight: 450;
   font-variation-settings: "wdth" 100;
 }
 @font-face {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: "IBM Plex Mono";
   src: url('IBMPlexMono-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
@@ -18,6 +18,7 @@
   --ink: #37352B;
   --white: #F3F2EB;
   --light: #DCDAD2;
+  --mid:#BDB8A7;
   --muted: #8A887F;
   --select: #2F6F62;
   --mono: "IBM Plex Mono", monospace;
@@ -25,6 +26,8 @@
   --reg: .5rem;
   --sml: .25rem;
   --font-body: 12px;
+  --font-button: 15px;
+  --button-pad: 0 .6rem;
 }
 
 * {
@@ -34,18 +37,24 @@
 html {
   scrollbar-gutter: stable;
   overflow-y: scroll;
-  -moz-osx-font-smoothing: grayscale;
--webkit-font-smoothing: antialiased;
+
+
 }
 
 body {
   margin: 0;
-  background: var(--light);
+  background: #fff;
   color: var(--ink);
   font-family: var(--hubot);
-  padding: 0 20px 20px;
+  font-optical-sizing: auto;
+  font-style: normal;
+  font-weight: 450;
+  font-variation-settings: "wdth" 100;
+  padding: 0;
   scrollbar-color: var(--ink) var(--white);
   scrollbar-width: thin;
+  -webkit-font-smoothing: antialiased;
+-moz-osx-font-smoothing: grayscale;
 }
 
 header {
@@ -69,11 +78,9 @@ h1 {
 }
 
 .lbl {
-  font-size: var(--font-body);
-  letter-spacing: .09em;
-  text-transform: uppercase;
-  color: var(--muted);
-  font-family: var(--mono)
+    font-size: var(--font-body);
+    text-transform: uppercase;
+    font-family: var(--mono);
 }
 
 #status {
@@ -122,7 +129,7 @@ h1 {
 .bottom-bar>div {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--reg);
   flex-wrap: wrap
 }
 
@@ -131,14 +138,11 @@ h1 {
   align-items: center;
   gap: 0;
   font-family: var(--hubot);
-  font-size: 22px;
+  font-size: var(--font-button);
   background: var(--white);
   color: var(--ink);
   cursor: pointer;
   letter-spacing: .02em;
-  font-style: normal;
-  font-weight: 425;
-  font-variation-settings: "wdth" 100;
   border: 1px solid #ff00;
 }
 
@@ -164,36 +168,18 @@ h1 {
   flex-wrap: wrap
 }
 
-.wrap {
-  margin-bottom: 14px
-}
-
 .canvas {
-  flex: 1 1 640px;
-  min-width: 300px;
-  position: sticky;
-  top: calc(var(--hh, 68px) + 18px);
-  align-self: flex-start;
   height: 100%;
+  width: 100%;
 }
-
-/* the white here is the preview surface only — it is never part of the export */
-/* safe center (not plain center): plain center on an overflow:auto flex
-     container can push overflowing content past the scrollport's start edge
-     into territory that's never reachable by scrolling — which is exactly
-     what stranded the frame's resize handle out of both view and click reach
-     once a zoomed board grew past .stage's own box. safe falls back to
-     start-alignment only for the overflowing amount, so it's still centred
-     whenever it fits, but nothing goes permanently out of reach. */
 .stage {
   background: var(--light);
   border: 1px solid var(--light);
   display: flex;
   justify-content: safe center;
   align-items: safe center;
-  padding: 6px;
   overflow: auto;
-  height: 97dvh
+  height: 100vh
 }
 
 svg#board {
@@ -226,14 +212,14 @@ aside>* {
 
 .panel .lbl {
   display: block;
-  margin-bottom: 9px
+  margin-bottom: var(--reg)
 }
 
 .panel .lbl-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 9px
+  margin-bottom: var(--reg)
 }
 
 .panel .lbl-row .lbl {
@@ -242,18 +228,16 @@ aside>* {
 
 textarea {
   width: 100%;
-  padding: 9px;
-  border: 1px solid var(--light);
+  padding: var(--reg);
   font-size: var(--font-body);
   font-family: var(--mono);
-  resize: vertical;
+  resize: none;
   min-height: 90px;
-  line-height: 1.4
+  line-height: 1.4;
+  border-radius: 1rem;
+  border: 0;
 }
 
-textarea#subtitle {
-  min-height: 50px
-}
 
 .field {
   display: flex;
@@ -274,18 +258,15 @@ textarea#subtitle {
 .field .row {
   display: flex;
   align-items: center;
-  gap: 8px
+  gap: var(--reg);
 }
 
 input[type=text] {
   width: 100%;
-  padding: .125rem 1rem;
+  padding: var(--button-pad);
   border: none;
-  font-size: 22px;
+  font-size: var(--font-button);
   font-family: var(--hubot);
-  font-style: normal;
-  font-weight: 425;
-  font-variation-settings: "wdth" 100;
   background: var(--white);
 }
 
@@ -314,7 +295,7 @@ input[type=color] {
 .swatch-row {
   display: flex;
   align-items: center;
-  gap: 9px
+  gap: var(--reg)
 }
 
 .swatch-row .hex {
@@ -339,16 +320,13 @@ input[type=color] {
 
 button {
   font-family: var(--hubot);
-  font-size: 22px;
-  padding: .125rem 1rem;
+  font-size: var(--font-button);
+  padding: var(--button-pad);
   background: var(--white);
   color: var(--ink);
   cursor: pointer;
   letter-spacing: .02em;
   width: 100%;
-  font-style: normal;
-  font-weight: 425;
-  font-variation-settings: "wdth" 100;
   border: 1px solid #ff00;
 }
 
@@ -364,15 +342,22 @@ button:disabled {
 }
 
 button.active {
-  background: var(--ink);
-  color: #fff
+  background: var(--mid);
+}
+
+.ctx-menu button:hover:not(:disabled) {
+    background: var(--mid);
+    padding-left: .5rem;
+    padding-right: .5rem;
+    border-radius: 1rem;
+    border: 0;
 }
 
 .hint {
   font-size: var(--font-body);
   color: var(--muted);
   line-height: 1.55;
-  margin: 9px 0 0
+  margin: var(--reg) 0 0
 }
 
 .btn-row {
@@ -387,11 +372,12 @@ button.active {
 
 select {
   width: 100%;
-  padding: 7px;
-  border: 1px solid var(--light);
+  padding: var(--reg);
+  border: 0;
   font-family: var(--mono);
-  font-size: 12px;
-  background: #fff
+  font-size: var(--font-body);
+  background: #fff;
+  border-radius: var(--reg);
 }
 
 .popover {
@@ -492,13 +478,9 @@ select {
 .ctx-menu {
   position: fixed;
   z-index: 55;
-  background: var(--white);
-  border: 1px solid var(--light);
-  padding: 0.5rem;
-  border-radius: 1rem;
   display: flex;
   flex-direction: column;
-  min-width: 190px;
+  min-width: 20vw;
 }
 
 .ctx-menu button {
@@ -508,10 +490,10 @@ select {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--reg);
+  font-family: var(--mono);
   font-weight: 400;
   font-style: normal;
-  font-family: var(--mono);
   text-transform: uppercase;
   font-size: var(--font-body);
   border-bottom: 1px solid var(--light);
@@ -589,19 +571,66 @@ select {
   justify-content: flex-start
 }
 
-.ctx-menu .field {
-  padding: 0 6px 8px;
-  margin-bottom: 0
-}
-
 .ctx-menu textarea {
   margin: 0
 }
 
-#subColourList {
-  max-height: 180px;
-  overflow: auto;
+/* ---------- menu panel content spacing (was inline in index.html) ---------- */
+#addSubtitleMenu, #addDateMenu { min-width: 220px }
+
+.adddate {
+    background: var(--white);
+    border: 1px solid var(--light);
+    padding: 0.5rem var(--reg);
+    border-radius: 1rem;
+    margin-bottom: var(--sml);
 }
+
+.addsubtext {
+    background: var(--white);
+    border: 1px solid var(--light);
+    padding: 0.5rem var(--reg);
+    border-radius: 1rem;
+    padding-top: 1rem;
+    padding-bottom: var(--reg);
+    margin-top: var(--sml);
+}
+
+#textAppearanceMenu, #settingsMenu { min-width: 280px }
+#importJsonFile { display: none }
+
+/* Section-header labels (direct children of a menu panel) get a top gap by
+   default; the ones sitting right under something else with no divider
+   above (a colour list, a preceding label) don't need it. */
+.ctx-menu > .lbl { padding: 4px 6px 0 }
+
+/* Colour swatch lists: subColourList / stSubColourList */
+.menu-list {
+  max-height: 25vh;
+  overflow: auto;
+  background: var(--white);
+  border: 1px solid var(--light);
+  padding: 0.5rem;
+  border-radius: 1rem;
+}
+.menu-field {
+    display: flex;
+    margin-top: var(--reg);
+}
+.menu-field-lg { padding: 4px 6px 8px }
+/* Add date's month/year row is the first thing in its panel (no label
+   above with its own top gap), so it needs the same extra top padding
+   .menu-field-lg gives everywhere else — kept ID-scoped since .field
+   already carries a more specific padding rule below that would win over
+   a plain second class. */
+#addDateMenu > .field { padding: 4px 6px 8px }
+
+/* Action rows/buttons that follow other content — no top gap needed */
+.menu-row { padding: 0 6px 8px }
+.menu-row-sm { padding: 0 6px 6px }
+.menu-row-xs { padding: 0 6px 4px }
+
+.field .row select { flex: 1 }
 
 .saved-row {
   display: flex;
@@ -640,7 +669,7 @@ select {
   border: none;
   background: none;
   color: var(--muted);
-  font-size: 22px;
+  font-size: var(--font-button);
   padding: 0 3px;
   width: auto;
   cursor: pointer
@@ -689,7 +718,7 @@ select {
 .modal-box .stack button {
   width: 100%;
   text-align: left;
-  padding: 9px 11px
+  padding: var(--reg) 11px
 }
 
 @keyframes text-caret-blink {

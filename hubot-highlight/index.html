@@ -55,43 +55,48 @@
 <footer class="bottom-bar">
   <div>
     <div class="menu-anchor up" id="addSubtitleAnchor">
-      <button type="button" id="addSubtitleBtn">Add subtitle</button>
-      <div class="ctx-menu closed" id="addSubtitleMenu" style="min-width:220px">
-        <div style="padding:4px 4px 6px" id="subColourList"></div>
-        <span class="lbl" style="padding:0 6px">Subtitle text</span>
-        <div style="padding:4px 6px 6px">
+      <button type="button" id="addSubtitleBtn">Show subtitle</button>
+      <div class="ctx-menu closed" id="addSubtitleMenu">
+        <div class="menu-list" id="subColourList"></div>
+        <div class="addsubtext">
+          <span class="lbl menu-sublabel">Subtitle text</span>
+        <div class="menu-field">
           <textarea id="subtitle" spellcheck="true" placeholder="Optional line above the title"></textarea>
+        </div>
         </div>
       </div>
     </div>
     <div class="menu-anchor up" id="addDateAnchor">
-      <button type="button" id="addDateBtn">Add date</button>
-      <div class="ctx-menu closed" id="addDateMenu" style="min-width:220px">
-        <span class="lbl" style="padding:4px 6px 0">Month &amp; year</span>
-        <div class="field" style="padding:4px 6px 8px">
-          <div class="row">
-            <select id="dateMonth" style="flex:1"></select>
-            <select id="dateYear" style="flex:1"></select>
+      <button type="button" id="addDateBtn">Show date</button>
+      <div class="ctx-menu closed" id="addDateMenu">
+        <div class="adddate">
+          <span class="lbl">Month &amp; year</span>
+          <div class="field">
+            <div class="row">
+              <select id="dateMonth"></select>
+              <select id="dateYear"></select>
+            </div>
           </div>
         </div>
-        <hr>
-        <button type="button" data-a="matchTitle">Match title colours</button>
-        <button type="button" data-a="presets">Colour presets <span class="ctx-caret">&#9656;</span></button>
-        <hr>
-        <button type="button" data-a="swap">Swap colours</button>
+        <div class="adddate-btns">
+          <button type="button" data-a="matchTitle">Match title colours</button>
+          <button type="button" data-a="presets">Colour presets <span class="ctx-caret">&#9656;</span></button>
+          <hr>
+          <button type="button" data-a="swap">Swap colours</button>
+        </div>
       </div>
     </div>
     <div class="menu-anchor up" id="textAppearanceAnchor">
       <button type="button" id="textAppearanceBtn">Text appearance</button>
-      <div class="ctx-menu closed" id="textAppearanceMenu" style="min-width:280px">
-        <span class="lbl" style="padding:4px 6px 0">Font size</span>
-        <div class="btn-row" style="padding:4px 6px 8px">
+      <div class="ctx-menu closed" id="textAppearanceMenu">
+        <span class="lbl">Font size</span>
+        <div class="btn-row menu-field-lg">
           <button data-size="150">H1</button>
           <button data-size="100">H2</button>
           <button data-size="50">H3</button>
         </div>
-        <span class="lbl" style="padding:0 6px">Heading text</span>
-        <div style="padding:4px 6px 6px">
+        <span class="lbl menu-sublabel">Heading text</span>
+        <div class="menu-field">
           <textarea id="text" spellcheck="true">Black Maternal Futures
 Project Wrap-up</textarea>
         </div>
@@ -99,8 +104,7 @@ Project Wrap-up</textarea>
         <button type="button" data-a="clear">Clear overrides</button>
         <button type="button" data-a="presets">Colour presets <span class="ctx-caret">&#9656;</span></button>
         <hr>
-        <button type="button" data-a="selectAll">Highlight all</button>
-        <button type="button" data-a="deselectAll">Un-highlight all</button>
+        <button type="button" id="taToggleAllBtn" data-a="toggleAll">Un-highlight all</button>
         <hr>
         <button type="button" data-a="swap">Swap colours</button>
       </div>
@@ -108,32 +112,29 @@ Project Wrap-up</textarea>
   </div>
   <div class="menu-anchor up right" id="settingsAnchor">
     <button type="button" id="settingsBtn">Controls</button>
-    <div class="ctx-menu closed" id="settingsMenu" style="min-width:280px">
+    <div class="ctx-menu closed" id="settingsMenu">
       <!-- Duplicates everything that used to live in the old always-visible
            sidebar panels, one section per panel, in their original order —
            the header/footer give quick single-purpose access to most of
            this already, but Settings is meant to be the complete mirror. -->
-      <span class="lbl" style="padding:4px 6px 0">Subtitle</span>
-      <div style="padding:4px 4px 6px" id="stSubColourList"></div>
-      <div style="padding:4px 6px 8px">
+      <span class="lbl">Subtitle</span>
+      <div class="menu-list" id="stSubColourList"></div>
+      <div class="menu-field-lg">
         <textarea id="stSubtitle" spellcheck="true" placeholder="Optional line above the title"></textarea>
       </div>
       <hr>
-      <span class="lbl" style="padding:4px 6px 0">Text</span>
-      <div style="padding:4px 6px 6px">
+      <span class="lbl">Text</span>
+      <div class="menu-field">
         <textarea id="stText" spellcheck="true"></textarea>
       </div>
-      <div class="btn-row" style="padding:0 6px 8px">
-        <button id="stSelectAllBtn">Highlight all</button>
-        <button id="stDeselectAllBtn">Un-highlight all</button>
-      </div>
+      <div class="menu-row"><button id="stToggleHighlightBtn">Un-highlight all</button></div>
       <hr>
-      <span class="lbl" style="padding:4px 6px 0">Date</span>
+      <span class="lbl">Date</span>
       <div class="field">
         <label>Month / year</label>
         <div class="row">
-          <select id="stDateMonth" style="flex:1"></select>
-          <select id="stDateYear" style="flex:1"></select>
+          <select id="stDateMonth"></select>
+          <select id="stDateYear"></select>
         </div>
       </div>
       <button type="button" data-a="matchTitle">Match title colours</button>
@@ -141,14 +142,14 @@ Project Wrap-up</textarea>
       <hr>
       <button type="button" data-a="swap">Swap colours</button>
       <hr>
-      <span class="lbl" style="padding:4px 6px 0">Type</span>
-      <div class="btn-row" style="padding:4px 6px 8px">
+      <span class="lbl">Type</span>
+      <div class="btn-row menu-field-lg">
         <button data-size="150">H1</button>
         <button data-size="100">H2</button>
         <button data-size="50">H3</button>
       </div>
       <hr>
-      <span class="lbl" style="padding:4px 6px 0">Colour presets</span>
+      <span class="lbl">Colour presets</span>
       <div class="field">
         <div class="combo" id="stTitlePresetCombo">
           <button type="button" class="combo-trigger" id="stTitlePresetTrigger">
@@ -159,27 +160,27 @@ Project Wrap-up</textarea>
           <div class="combo-menu" id="stTitlePresetMenu" hidden></div>
         </div>
       </div>
-      <div style="padding:0 6px 6px"><button id="stColorSwapBtn">&#8646; Swap colours</button></div>
-      <div style="padding:0 6px 8px"><button id="stClearOverridesBtn">Clear all overrides</button></div>
+      <div class="menu-row-sm"><button id="stColorSwapBtn">&#8646; Swap colours</button></div>
+      <div class="menu-row"><button id="stClearOverridesBtn">Clear all overrides</button></div>
       <hr>
-      <span class="lbl" style="padding:4px 6px 0">Save &amp; load</span>
+      <span class="lbl">Save &amp; load</span>
       <div class="field">
         <label>Name</label>
         <input type="text" id="stLayoutName" placeholder="Untitled">
       </div>
-      <div style="padding:0 6px 8px"><button id="stSaveBtn">Save</button></div>
-      <div id="stLoadList" style="padding:0 6px 4px"></div>
-      <div class="btn-row" style="padding:0 6px 8px">
-        <button id="stExportJsonBtn">Export .json</button>
-        <button id="stImportJsonBtn">Import .json</button>
+      <div class="menu-row"><button id="stSaveBtn">Save</button></div>
+      <div id="stLoadList" class="menu-row-xs"></div>
+      <div class="btn-row menu-row">
+        <button id="stExportJsonBtn">Export styles</button>
+        <button id="stImportJsonBtn">Import styles</button>
       </div>
       <hr>
-      <span class="lbl" style="padding:4px 6px 0">Export resolution</span>
-      <div class="btn-row" style="padding:4px 6px 8px">
+      <span class="lbl">Export resolution</span>
+      <div class="btn-row menu-field-lg">
         <button data-scale="1">1&times;</button>
         <button data-scale="2">2&times;</button>
       </div>
-      <div class="btn-row" style="padding:0 6px 8px">
+      <div class="btn-row menu-row">
         <button id="stExportBtn">Export PNG</button>
         <button id="stExportSvgBtn">Export SVG</button>
       </div>
@@ -187,7 +188,7 @@ Project Wrap-up</textarea>
   </div>
 </footer>
 
-<input type="file" id="importJsonFile" accept="application/json" style="display:none">
+<input type="file" id="importJsonFile" accept="application/json">
 
 <script type="module" src="harfbuzz-bundle.js"></script>
 <script src="app.js"></script>

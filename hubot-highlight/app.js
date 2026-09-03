@@ -175,9 +175,23 @@ function unhighlightAllWords(){
   S.wordColors={};
   render();
 }
-/* Settings' duplicates of the same four actions. */
-$('stSelectAllBtn').addEventListener('click',function(){ highlightAllWords(); closeAllMenus(); });
-$('stDeselectAllBtn').addEventListener('click',function(){ unhighlightAllWords(); closeAllMenus(); });
+/* One combined toggle instead of two separate buttons — its label always
+   names the action a click will perform, so it reads "Un-highlight all"
+   whenever everything's currently on (true by default: a fresh document
+   starts with nothing in S.off) and flips to "Highlight all" as soon as
+   anything's off, including a genuinely mixed state — clicking then always
+   resolves to fully on. */
+function allWordsHighlighted(){
+  return allWords().every(w=>!S.off[w.gidx]);
+}
+function toggleHighlightAllLabel(){
+  return allWordsHighlighted()?'Un-highlight all':'Highlight all';
+}
+function toggleHighlightAll(){
+  if(allWordsHighlighted()) unhighlightAllWords(); else highlightAllWords();
+}
+/* Settings' duplicates of the same three actions. */
+$('stToggleHighlightBtn').addEventListener('click',function(){ toggleHighlightAll(); closeAllMenus(); });
 $('stColorSwapBtn').addEventListener('click',function(){ swapTitleColours(); closeAllMenus(); });
 $('stClearOverridesBtn').addEventListener('click',function(){ clearAllOverrides(); closeAllMenus(); });
 
@@ -758,8 +772,7 @@ function openBoardMenu(clientX,clientY){
     '<button type="button" data-a="clear">Clear overrides</button>'+
     '<button type="button" data-a="presets">Colour presets <span class="ctx-caret">&#9656;</span></button>'+
     '<hr>'+
-    '<button type="button" data-a="selectAll">Highlight all</button>'+
-    '<button type="button" data-a="deselectAll">Un-highlight all</button>'+
+    '<button type="button" data-a="toggleAll">'+toggleHighlightAllLabel()+'</button>'+
     '<hr>'+
     '<button type="button" data-a="swap">Swap colours</button>';
   document.body.appendChild(el);
@@ -777,8 +790,7 @@ function openBoardMenu(clientX,clientY){
     switch(b.dataset.a){
       case 'presets': return; /* the submenu handles its own clicks */
       case 'clear': clearAllOverrides(); break;
-      case 'selectAll': highlightAllWords(); break;
-      case 'deselectAll': unhighlightAllWords(); break;
+      case 'toggleAll': toggleHighlightAll(); break;
       case 'swap': swap.commitSwap(); break;
     }
     closeBoardMenu();
@@ -921,8 +933,7 @@ const textAppearanceHover=initHoverPanel('textAppearanceAnchor','textAppearanceM
     switch(b.dataset.a){
       case 'presets': return; /* the submenu handles its own clicks */
       case 'clear': clearAllOverrides(); break;
-      case 'selectAll': highlightAllWords(); break;
-      case 'deselectAll': unhighlightAllWords(); break;
+      case 'toggleAll': toggleHighlightAll(); break;
       case 'swap': swap.commitSwap(); break;
     }
   });
@@ -974,8 +985,8 @@ function savedRowsHTML(){
 }
 function renderLoadMenu(){
   $('loadMenu').innerHTML=savedRowsHTML()+'<hr>'+
-    '<button type="button" id="exportJsonBtn">Export .json</button>'+
-    '<button type="button" id="importJsonBtn">Import .json</button>';
+    '<button type="button" id="exportJsonBtn">Export styles</button>'+
+    '<button type="button" id="importJsonBtn">Import styles</button>';
 }
 initToggleMenu('loadBtn','loadMenu',renderLoadMenu);
 /* Settings' duplicate of the same Saved list — just the rows, since it has
@@ -1172,8 +1183,13 @@ function syncInputs(){
   $('stText').value=S.text;
   $('subtitle').value=S.subtitle;
   $('stSubtitle').value=S.subtitle;
+  /* The button's own label doubles as its state indicator ("Show subtitle"
+     / "Hide subtitle") — visible without checking anywhere else, since the
+     panel opens upward from this button and never covers it. */
   $('addDateBtn').classList.toggle('active',S.dateOn);
+  $('addDateBtn').textContent=S.dateOn?'Hide date':'Show date';
   $('addSubtitleBtn').classList.toggle('active',S.subtitleOn);
+  $('addSubtitleBtn').textContent=S.subtitleOn?'Hide subtitle':'Show subtitle';
   stTitlePresetCombo.refresh();
   $('dateMonth').value=S.dateMonth; $('dateYear').value=S.dateYear;
   $('stDateMonth').value=S.dateMonth; $('stDateYear').value=S.dateYear;
@@ -1731,6 +1747,14 @@ function render(){
   frameG.appendChild(resizeH);
 
   attachDrag(resizeH);
+
+  /* Keeps the Highlight/Un-highlight all toggle's label matching real
+     state even when nothing about it was clicked directly — a per-word
+     double-click, a right-click popover swap, anything touching S.off runs
+     through render(), so this always ends up current. */
+  const highlightAllLabel=toggleHighlightAllLabel();
+  $('taToggleAllBtn').textContent=highlightAllLabel;
+  $('stToggleHighlightBtn').textContent=highlightAllLabel;
 }
 
 /* ---------- frame dragging ---------- */
