@@ -806,7 +806,8 @@ button.color-swatch:nth-last-of-type(1) {
 
 
 button#subtitleToggleBtn, button#dateToggleBtn {
-border:0
+border:0;
+padding: 0;
 }
 
 button#subtitleToggleBtn.active, button#dateToggleBtn.active {

@@ -126,6 +126,16 @@ function slugify(str){
   const s=str.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
   return s||'hubot-highlight';
 }
+/* The first 4 words of the title, collapsing line breaks/runs of
+   whitespace into single spaces first — used as the layout name's
+   placeholder/fallback so an unnamed save is still named something
+   recognisable instead of literally "Untitled". Never overwrites a name
+   the user actually typed (see the placeholder vs value distinction where
+   this is used). */
+function deriveTitleName(){
+  const words=S.text.replace(/\s+/g,' ').trim().split(' ').filter(Boolean);
+  return words.slice(0,4).join(' ');
+}
 
 /* ---------- history (undo/redo) ---------- */
 let history=[], future=[], lastPushT=0;
@@ -1101,7 +1111,7 @@ function computeSaveActions(typed){
 }
 $('saveBtn').addEventListener('click',function(e){
   e.stopPropagation();
-  const typed=($('layoutName').value||'').trim()||'Untitled';
+  const typed=($('layoutName').value||'').trim()||deriveTitleName()||'Untitled';
   const actions=computeSaveActions(typed);
   if(!actions){ commitSave(snapshotLayout(uid(),typed)); return; }
   const menu=$('saveMenu');
@@ -1411,6 +1421,11 @@ board.addEventListener('mouseenter',function(){ if(!frameHovered){ frameHovered=
 board.addEventListener('mouseleave',function(){ if(frameHovered){ frameHovered=false; render(); } });
 
 function render(){
+  /* Live placeholder, not the field's value — only shows while the name
+     field is actually empty, so it never overwrites a name someone typed
+     on purpose, but still updates as the title changes right up until
+     they do type one. */
+  $('layoutName').placeholder=deriveTitleName()||'Untitled';
   const size=S.fontSize;
   const pitch=size*(S.lineHeight/100);
   const trackPct=S.tracking;
