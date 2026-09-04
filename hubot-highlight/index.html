@@ -57,15 +57,15 @@
         <button type="button" data-a="clear">Clear overrides</button>
         <button type="button" data-a="presets">Colour presets <span class="ctx-caret">&#9656;</span></button>
         <button type="button" id="taToggleAllBtn" data-a="toggleAll">Un-highlight all</button>
-        <button type="button" data-a="swap">Swap colours</button>
+        <button type="button" data-a="swap">&#8646; Swap colours</button>
       </div>
       </div>
     </div>
     <div class="menu-anchor" id="addSubtitleAnchor">
       <button type="button" id="addSubtitleBtn">Subtitle</button>
       <div class="ctx-menu closed" id="addSubtitleMenu">
-        <div class="menu-field-lg"><button type="button" id="subtitleToggleBtn">Show subtitle</button></div>
-        <div class="addsubtext">
+        <div class="menu-field-lg menu-bk"><button type="button" id="subtitleToggleBtn">Show subtitle</button></div>
+        <div class="addsubtext menu-bk">
           <span class="lbl menu-sublabel">Subtitle text</span>
         <div class="menu-field">
           <textarea id="subtitle" spellcheck="true" placeholder="Optional line above the title"></textarea>
@@ -77,8 +77,8 @@
     <div class="menu-anchor" id="addDateAnchor">
       <button type="button" id="addDateBtn">Date</button>
       <div class="ctx-menu closed" id="addDateMenu">
-        <div class="menu-field-lg"><button type="button" id="dateToggleBtn">Show date</button></div>
-        <div class="adddate">
+        <div class="menu-bk"><button type="button" id="dateToggleBtn">Show date</button></div>
+        <div class="adddate menu-bk">
           <span class="lbl">Month &amp; year</span>
           <div class="field">
             <div class="row">
@@ -87,11 +87,10 @@
             </div>
           </div>
         </div>
-        <div class="adddate-btns">
-          <button type="button" data-a="matchTitle">Match title colours</button>
+        <div class="adddate-btns menu-bk">
           <button type="button" data-a="presets">Colour presets <span class="ctx-caret">&#9656;</span></button>
-          <hr>
-          <button type="button" data-a="swap">Swap colours</button>
+          <button type="button" data-a="swap">&#8646; Swap colours</button>
+          <button type="button" data-a="matchTitle">Match title colours</button>
         </div>
       </div>
     </div>

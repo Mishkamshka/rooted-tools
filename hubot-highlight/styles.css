@@ -31,7 +31,7 @@
   --med: 1rem;
   --reg: .5rem;
   --sml: .25rem;
-  --font-body: 12px;
+  --font-body: 11px;
   --font-button: 15px;
   --button-pad: 0 .6rem;
 }
@@ -78,6 +78,7 @@ h1 {
   text-transform: uppercase;
   padding-bottom: var(--sml);
   display: block;
+  padding-top: var(--reg);
 }
 
 /* =========================================================
@@ -430,7 +431,7 @@ aside>* {
   padding-left: .5rem;
   padding-right: .5rem;
   border-color: transparent;
-  border-radius: 1rem;
+  border-radius: .5rem;
 }
 
 .ctx-menu button.active {
@@ -485,7 +486,7 @@ aside>* {
   z-index: 56;
   top: calc(100% + var(--sml));
   left: 0;
-  width: 15vw;
+  width: 20vw;
   max-height: 90vh;
   overflow: auto;
   opacity: 1;
@@ -513,21 +514,7 @@ aside>* {
 }
 
 .menu-bk{
-  padding: 1rem var(--reg) var(--reg);
-  border: 1px solid var(--light);
-  border-radius: 1rem;
-  background: var(--white);
-}
-
-.adddate {
-  padding: 0.5rem var(--reg);
-  border: 1px solid var(--light);
-  border-radius: 1rem;
-  background: var(--white);
-}
-
-.addsubtext {
-  padding: 1rem var(--reg) var(--reg);
+  padding: var(--reg) var(--reg);
   border: 1px solid var(--light);
   border-radius: 1rem;
   background: var(--white);
@@ -623,7 +610,7 @@ aside>* {
   justify-content: flex-start;
   gap: var(--sml);
   width: 100%;
-  padding: var(--med) 0;
+  padding: var(--reg) 0;
   border: none;
   text-align: left;
   cursor: pointer;
@@ -641,9 +628,8 @@ aside>* {
   z-index: 50;
   display: flex;
   flex-direction: column;
-  gap: var(--sml);
   min-width: 170px;
-  padding: var(--sml);
+  padding: var(--reg);
   border: 1px solid var(--light);
   background: var(--white);
   transform-origin: top left;
@@ -658,15 +644,46 @@ aside>* {
   font-family: var(--mono);
   display: flex;
   align-items: center;
-  gap: var(--sml);
+  gap: var(--reg);
   justify-content: flex-start;
-  padding: var(--med) var(--sml) !important;
+  padding: var(--reg) 0;
   border-bottom: 1px solid var(--light);
 }
 
+/* Two per row instead of one long scrolling column — cuts how much of the
+   preset list needs scrolling at all, rather than fighting the browser to
+   keep a scrollbar always visible. */
+.popover-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--reg);
+    flex-direction: column;
+}
+
+.popover-presets button {
+  flex: 0 0 calc(50% - var(--reg) / 2);
+}
+
+/* Stays a plain full-width stacked list, same as every button did before
+   the presets were split into their own wrapping group. */
+.popover-actions {
+  display: flex;
+  flex-direction: column;
+}
+
 .popover .name {
-  font-family: var(--mono);
+  text-transform: uppercase;
   font-size: var(--font-body);
+}
+
+.popover button:hover {
+    border-radius: 0.5rem;
+    padding: var(--reg) !important;
+    background: var(--mid);
+}
+
+button.color-swatch:nth-last-of-type(1) {
+    border-bottom: 0;
 }
 
 /* ---------- saved layouts list ---------- */
@@ -763,13 +780,16 @@ aside>* {
 }
 
 
-button#subtitleToggleBtn {
-    padding: 1rem;
+button#subtitleToggleBtn, button#dateToggleBtn {
+border:0
+}
+
+button#subtitleToggleBtn.active, button#dateToggleBtn.active {
     border-radius: 1rem;
 }
 
-.settings-text-section button {
-    padding: 1rem;
+.settings-text-section button, .adddate-btns button {
+    padding: var(--reg) 0;
 }
 
 .settings-text-section.menu-bk {
@@ -781,9 +801,6 @@ button#subtitleToggleBtn {
     background: var(--mid);
 }
 
-.popover button:hover {
-    border-radius: 1rem;
-}
 /* =========================================================
    6. Animations
    ========================================================= */
@@ -815,4 +832,14 @@ button#subtitleToggleBtn {
     flex: 1 1 100%;
     columns: 260px;
   }
+}
+/* 
+.color-swatch span {
+    border-radius: 50%;
+    overflow: hidden;
+    border: 1px solid var(--light);
+} */
+
+.ctx-menu button:nth-last-of-type(1) {
+    border-bottom: none;
 }

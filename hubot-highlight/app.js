@@ -6,15 +6,15 @@ const ALTS=[
   {tag:'ss04', name:'Serifless uppercase I', on:false}
 ];
 const PRESETS=[
-  {name:'Violet / Dark Purple',      pad:'#A87BFE', font:'#4D1061'},
-  {name:'Dusk / Midnight',           pad:'#D0B6FF', font:'#322234'},
-  {name:'First Light / Dark Purple', pad:'#F1EFFD', font:'#4D1061'},
-  {name:'Marigold / Soil',           pad:'#FF9C63', font:'#75153A'},
-  {name:'Marigold Light / Soil',     pad:'#FFE4D1', font:'#75153A'},
-  {name:'Harvest / Earth',           pad:'#FFE57B', font:'#5F4D00'},
-  {name:'Light Harvest / Earth',     pad:'#FFF6D1', font:'#5F4D00'},
-  {name:'Apple / Elder',             pad:'#C9EB9D', font:'#314234'},
-  {name:'Apple Hint / Elder',        pad:'#F7FFE4', font:'#314234'}
+  {name:'Violet + Dark Purple',      pad:'#A87BFE', font:'#4D1061'},
+  {name:'Dusk + Midnight',           pad:'#D0B6FF', font:'#322234'},
+  {name:'First Light + Dark Purple', pad:'#F1EFFD', font:'#4D1061'},
+  {name:'Marigold + Soil',           pad:'#FF9C63', font:'#75153A'},
+  {name:'Marigold Light + Soil',     pad:'#FFE4D1', font:'#75153A'},
+  {name:'Harvest + Earth',           pad:'#FFE57B', font:'#5F4D00'},
+  {name:'Light Harvest + Earth',     pad:'#FFF6D1', font:'#5F4D00'},
+  {name:'Apple + Elder',             pad:'#C9EB9D', font:'#314234'},
+  {name:'Apple Hint + Elder',        pad:'#F7FFE4', font:'#314234'}
 ];
 /* the full brand palette, single colours — used where only one colour is
    needed (the subtitle), as opposed to PRESETS' curated font+highlight pairs */
@@ -121,7 +121,7 @@ document.addEventListener('click',function(e){
 },true);
 function flash(m){ const el=$('status'); el.textContent=m; clearTimeout(flash.t); flash.t=setTimeout(()=>el.textContent='',3200); }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
-function twoTone(pad,font){ return 'linear-gradient(135deg,'+pad+' 50%,'+font+' 50%)'; }
+function twoTone(pad,font){ return 'linear-gradient(90deg,'+pad+' 50%,'+font+' 50%)'; }
 function slugify(str){
   const s=str.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
   return s||'hubot-highlight';
@@ -491,12 +491,17 @@ function openWordPopover(gidx,clientX,clientY){
   el.id='wordPopover'; el.className='popover';
   el.style.left=Math.min(clientX,window.innerWidth-190)+'px';
   el.style.top=Math.min(clientY,window.innerHeight-220)+'px';
-  el.innerHTML=PRESETS.map((p,i)=>
-    '<button type="button" data-p="'+i+'">'+
-      '<span style="width:14px;height:14px;background:'+twoTone(p.pad,p.font)+';border:1px solid var(--rule);flex:none"></span>'+
-      '<span class="name">'+p.name+'</span></button>').join('')+
-    '<button type="button" data-p="swap">&#8646; Swap this word\'s colours</button>'+
-    '<button type="button" data-p="clear">Clear override</button>';
+  el.innerHTML=
+    '<div class="popover-presets">'+
+      PRESETS.map((p,i)=>
+        '<button type="button" data-p="'+i+'">'+
+          '<span class="swatch-dot" style="background:'+twoTone(p.pad,p.font)+'"></span>'+
+          '<span class="name">'+p.name+'</span></button>').join('')+
+    '</div>'+
+    '<div class="popover-actions">'+
+      '<button type="button" data-p="swap">&#8646; Swap this word\'s colours</button>'+
+      '<button type="button" data-p="clear">Clear override</button>'+
+    '</div>';
   document.body.appendChild(el);
   popIn(el);
 
@@ -552,7 +557,7 @@ function openSubtitlePopover(clientX,clientY){
   el.style.left=Math.min(clientX,window.innerWidth-190)+'px';
   el.style.top=Math.min(clientY,window.innerHeight-220)+'px';
   el.innerHTML=PALETTE.map((c,i)=>
-    '<button type="button" data-p="'+i+'" style="display:flex;align-items:center;gap:7px;justify-content:flex-start">'+
+    '<button type="button" data-p="'+i+'" >'+
       '<span style="width:14px;height:14px;border-radius:50%;background:'+c.hex+';border:1px solid var(--rule);flex:none"></span>'+
       '<span class="name">'+c.name+'</span></button>').join('');
   document.body.appendChild(el);
@@ -596,7 +601,7 @@ function openDatePopover(clientX,clientY){
   el.style.left=Math.min(clientX,window.innerWidth-190)+'px';
   el.style.top=Math.min(clientY,window.innerHeight-220)+'px';
   el.innerHTML=PRESETS.map((p,i)=>
-    '<button type="button" data-p="'+i+'" style="display:flex;align-items:center;gap:7px;justify-content:flex-start">'+
+    '<button type="button" data-p="'+i+'" >'+
       '<span style="width:14px;height:14px;background:'+twoTone(p.pad,p.font)+';border:1px solid var(--rule);flex:none"></span>'+
       '<span class="name">'+p.name+'</span></button>').join('')+
     '<button type="button" data-p="swap">&#8646; Swap colours</button>'+
@@ -678,8 +683,8 @@ function openColorPresetSubmenu(anchorBtn,getState,setState,onCommit){
      well above whatever was actually hovered. */
   el.style.top=Math.max(4,r.top)+'px';
   el.innerHTML=PRESETS.map((p,i)=>
-    '<button type="button" data-i="'+i+'" style="display:flex;align-items:center;gap:7px;justify-content:flex-start">'+
-      '<span style="width:14px;height:14px;background:'+twoTone(p.pad,p.font)+';border:1px solid var(--rule);flex:none"></span>'+
+    '<button type="button" data-i="'+i+'" >'+
+      '<span class="swatch-dot" style="background:'+twoTone(p.pad,p.font)+';"></span>'+
       '<span class="name">'+p.name+'</span></button>').join('');
   document.body.appendChild(el);
   /* measured only now that it's in the DOM (with its real content) — its
@@ -796,7 +801,7 @@ function openBoardMenu(clientX,clientY){
     '<hr>'+
     '<button type="button" data-a="toggleAll">'+toggleHighlightAllLabel()+'</button>'+
     '<hr>'+
-    '<button type="button" data-a="swap">Swap colours</button>';
+    '<button type="button" data-a="swap">&#8646; Swap colours</button>';
   document.body.appendChild(el);
   popIn(el);
 
