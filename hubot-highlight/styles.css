@@ -562,8 +562,33 @@ aside>* {
   padding: 0 6px 4px;
 }
 
+/* Still two plain, separate native <select>s (month stays independent of
+   year) — just restyled to match the rest of the UI instead of looking
+   like a bare OS control: appearance:none strips the native chrome, and
+   the chevron is redrawn by hand as a background-image since a <select>
+   can't host a real ::after the way a normal element can. */
 .field .row select {
   flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  border: 1px solid var(--light);
+  border-radius: .5rem;
+  padding: var(--reg) 1.6rem var(--reg) var(--reg);
+  background-color: var(--white);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2337352B' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right .65rem center;
+  background-size: 9px;
+  cursor: pointer;
+}
+
+.field .row select:hover {
+  border-color: var(--mid);
+}
+
+.field .row select:focus {
+  outline: none;
+  border-color: var(--ink);
 }
 
 /* ---------- dropdown combo (colour preset trigger) ---------- */
@@ -674,49 +699,6 @@ aside>* {
 .popover .name {
   text-transform: uppercase;
   font-size: var(--font-body);
-}
-
-/* ---------- date picker (month + year, one popover) ---------- */
-
-.date-picker-year {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--reg);
-  padding-bottom: var(--reg);
-  margin-bottom: var(--reg);
-  border-bottom: 1px solid var(--light);
-}
-
-.date-picker-year button {
-  width: auto;
-  padding: var(--sml) var(--reg);
-}
-
-.date-picker-year-label {
-  font-family: var(--mono);
-  font-size: var(--font-button);
-  min-width: 4em;
-  text-align: center;
-}
-
-.date-picker-months {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--sml);
-}
-
-.date-picker-months button {
-  width: auto;
-  justify-content: center;
-  border: 1px solid var(--light);
-  border-bottom: 1px solid var(--light);
-  border-radius: .5rem;
-}
-
-.date-picker-months button.active {
-  background: var(--ink);
-  color: #fff;
 }
 
 .popover button:hover {

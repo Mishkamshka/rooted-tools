@@ -642,51 +642,38 @@ function openDatePopover(clientX,clientY){
   activeWordPopover={el:el,revert:revert};
 }
 
-/* Left-click on the date opens a single stylised popover for both month and
-   year — replaces having to reach for the Date panel's two native <select>s.
+/* Left-click on the date opens a popover for month + year — same pair of
+   plain <select>s as the Date panel in the header (same markup, same
+   .field .row select styling, reusing the same options strings), just
+   reachable straight from the canvas instead of having to open that panel.
    Reuses activeWordPopover (the same "only one popover open at a time"
    system the colour popovers use) rather than a parallel one, since only
-   one of any of these should ever be open together. Nothing here needs a
-   hover-preview/revert step the way the colour popovers do — every click
-   commits immediately — so revert is just a no-op. */
+   one of any of these should ever be open together. */
 function openDatePicker(clientX,clientY){
   closeWordPopover(true);
   const el=document.createElement('div');
   el.id='wordPopover'; el.className='popover';
-  el.style.left=Math.min(clientX,window.innerWidth-200)+'px';
-  el.style.top=Math.min(clientY,window.innerHeight-260)+'px';
-  let draftYear=S.dateYear;
+  /* wider than the default popover min-width (170px) — same 220px the
+     header's own Date panel uses, since "September"-length month names
+     clip inside the narrower default. */
+  el.style.minWidth='220px';
+  el.style.left=Math.min(clientX,window.innerWidth-220)+'px';
+  el.style.top=Math.min(clientY,window.innerHeight-140)+'px';
   el.innerHTML=
-    '<div class="date-picker-year">'+
-      '<button type="button" data-y="prev">&#8249;</button>'+
-      '<span class="date-picker-year-label">'+draftYear+'</span>'+
-      '<button type="button" data-y="next">&#8250;</button>'+
-    '</div>'+
-    '<div class="date-picker-months">'+
-      MONTHS.map((m,i)=>'<button type="button" data-m="'+(i+1)+'" class="'+(S.dateMonth===i+1?'active':'')+'">'+m.slice(0,3)+'</button>').join('')+
+    '<div class="field">'+
+      '<span class="lbl">Month &amp; year</span>'+
+      '<div class="row">'+
+        '<select id="datePickerMonth">'+monthOptionsHTML+'</select>'+
+        '<select id="datePickerYear">'+yearOptionsHTML+'</select>'+
+      '</div>'+
     '</div>';
   document.body.appendChild(el);
   popIn(el);
 
-  const yearLabel=el.querySelector('.date-picker-year-label');
-  el.addEventListener('click',function(e){
-    const yBtn=e.target.closest('[data-y]');
-    if(yBtn){
-      draftYear=clamp(draftYear+(yBtn.dataset.y==='next'?1:-1),YEAR_MIN,YEAR_MAX);
-      yearLabel.textContent=draftYear;
-      pushHistory();
-      S.dateYear=draftYear;
-      syncInputs(); render();
-      return;
-    }
-    const mBtn=e.target.closest('[data-m]');
-    if(mBtn){
-      pushHistory();
-      S.dateMonth=+mBtn.dataset.m;
-      syncInputs(); render();
-      closeWordPopover(false);
-    }
-  });
+  const monthSel=el.querySelector('#datePickerMonth'),yearSel=el.querySelector('#datePickerYear');
+  monthSel.value=S.dateMonth; yearSel.value=S.dateYear;
+  monthSel.addEventListener('change',function(){ pushHistory(); S.dateMonth=+this.value; syncInputs(); render(); });
+  yearSel.addEventListener('change',function(){ pushHistory(); S.dateYear=+this.value; syncInputs(); render(); });
 
   activeWordPopover={el:el,revert:function(){}};
 }
