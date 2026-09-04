@@ -607,15 +607,20 @@ function openSubtitlePopover(clientX,clientY){
 function openDatePopover(clientX,clientY){
   closeWordPopover(true);
   const el=document.createElement('div');
-  el.id='wordPopover'; el.className='popover';
+  el.id='wordPopover'; el.className='popover mica';
   el.style.left=Math.min(clientX,window.innerWidth-190)+'px';
   el.style.top=Math.min(clientY,window.innerHeight-220)+'px';
-  el.innerHTML=PRESETS.map((p,i)=>
-    '<button type="button" data-p="'+i+'" >'+
-      '<span class="swatch-dot" style="width:14px;height:14px;background:'+twoTone(p.pad,p.font)+';border:1px solid var(--rule);flex:none"></span>'+
-      '<span class="name">'+p.name+'</span></button>').join('')+
-    '<button type="button" data-p="swap">&#8646; Swap colours</button>'+
-    '<button type="button" data-p="clear">Match title colours</button>';
+  el.innerHTML=
+    '<div class="menu-list">'+
+      PRESETS.map((p,i)=>
+        '<button type="button" data-p="'+i+'" >'+
+          '<span class="swatch-dot" style="width:14px;height:14px;background:'+twoTone(p.pad,p.font)+';border:1px solid var(--rule);flex:none"></span>'+
+          '<span class="name">'+p.name+'</span></button>').join('')+
+    '</div>'+
+    '<div class="col-settings menu-bk">'+
+      '<button type="button" data-p="swap">&#8646; Swap colours</button>'+
+      '<button type="button" data-p="clear">Match title colours</button>'+
+    '</div>';
   document.body.appendChild(el);
   popIn(el);
 

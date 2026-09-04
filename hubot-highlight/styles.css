@@ -676,6 +676,8 @@ aside>* {
   justify-content: flex-start;
   padding: var(--reg) 0;
   border-bottom: 1px solid var(--light);
+  font-size: var(--font-body);
+  text-transform: uppercase;
 }
 
 /* Two per row instead of one long scrolling column — cuts how much of the
@@ -694,7 +696,8 @@ aside>* {
 
 /* Stays a plain full-width stacked list, same as every button did before
    the presets were split into their own wrapping group. */
-.popover-actions {
+.popover-actions,
+.col-settings {
   display: flex;
   flex-direction: column;
 }
@@ -714,6 +717,25 @@ button.color-swatch:nth-last-of-type(1) {
     border-bottom: 0;
 }
 
+
+.popover.mica {
+    background: none;
+    box-shadow: none;
+    border: none;
+    padding: 0;
+    border-radius: 0;
+    gap: var(--sml);
+}
+
+.mica .menu-list {
+    display: flex;
+    flex-direction: column;
+    /* gap: var(--sml); */
+}
+
+.col-settings button:nth-last-of-type(1) {
+    border-bottom: 0;
+}
 /* ---------- saved layouts list ---------- */
 
 .saved-row {
@@ -832,7 +854,11 @@ button#subtitleToggleBtn.active, button#dateToggleBtn.active {
 }
 
 #textAppearanceMenu button.active {
-    color: var(--ink);
+    background: var(--ink);
+    color: #fff;
+}
+
+#textAppearanceMenu button:hover {
     background: var(--mid);
 }
 
