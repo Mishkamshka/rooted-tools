@@ -57,7 +57,7 @@ function defaultState(){
     dateOn:false, dateColor:'#4D1061', datePadColor:'#A87BFE',
     dateMonth:now.getMonth()+1, dateYear:clamp(now.getFullYear(),YEAR_MIN,YEAR_MAX),
     frame:{x:null,y:null,width:null},
-    fontSize:150, lineHeight:95, tracking:-4, capPct:66.7,
+    fontSize:150, lineHeight:95, tracking:-4, subDateTracking:0, capPct:66.7,
     padStart:10.5, padROld:17, padVOld:17,
     padStart2:10.5, padMid:4, padROther:9, padOther:17,
     fontColor:'#4D1061', padColor:'#A87BFE',
@@ -1378,6 +1378,7 @@ function render(){
   const size=S.fontSize;
   const pitch=size*(S.lineHeight/100);
   const trackPct=S.tracking;
+  const subDateTrackPct=S.subDateTracking;
   const fontColor=S.fontColor, padColor=S.padColor;
   const m=metrics(size,trackPct);
   const cap=m.cap*(S.capPct/100);
@@ -1457,7 +1458,7 @@ function render(){
 
   /* ---- subtitle: measured, own single line for now (wraps as one block if it has line breaks) ---- */
   const subSize=Math.max(10,size*0.32);
-  const subStyle=fontStyle(subSize,trackPct,350,100);
+  const subStyle=fontStyle(subSize,subDateTrackPct,450,100);
   /* Turning the subtitle on with no text typed yet shows a ghost "Edit Me"
      line instead of nothing — an editing affordance, not real content, so
      it's excluded from lastGlyphRuns below (never exported) and drawn at
@@ -1465,7 +1466,7 @@ function render(){
   const subHasText=S.subtitle.split('\n').some(l=>l.trim()!=='' );
   const subIsPlaceholder=S.subtitleOn&&!subHasText;
   const subLines=S.subtitleOn?(subHasText?S.subtitle.split('\n'):['Optional line above the title']):[];
-  const subM=subLines.length?metrics(subSize,trackPct):null;
+  const subM=subLines.length?metrics(subSize,subDateTrackPct):null;
   const subPitch=subSize*(S.lineHeight/100);
   const subH=subLines.length?((subLines.length-1)*subPitch+subM.cap+subM.desc):0;
   const subGapPx=subLines.length?size*GAP_ABOVE_SUBTITLE:0;
@@ -1475,8 +1476,8 @@ function render(){
   /* ---- date ---- */
   const dateStr=S.dateOn?(MONTHS[S.dateMonth-1]+' '+S.dateYear):'';
   const dateSize=Math.max(10,size*0.26);
-  const dateStyle=fontStyle(dateSize,trackPct);
-  const dateM=S.dateOn?metrics(dateSize,trackPct):null;
+  const dateStyle=fontStyle(dateSize,subDateTrackPct);
+  const dateM=S.dateOn?metrics(dateSize,subDateTrackPct):null;
   const dateCap=S.dateOn?dateM.cap*(S.capPct/100):0;
   /* left/right and top/bottom padding are both doubled relative to the
      title's own whole-line padding — the default read too tight around the date */
@@ -1665,7 +1666,7 @@ function render(){
       subG.appendChild(t);
 
       if(lineText.trim()){
-        if(!subIsPlaceholder) lastGlyphRuns.push({text:lineText,x:targetLeft,y:sy,size:subSize,wght:350,wdth:100,trackingPx:trackPct*subSize/100,fill:S.subColor,anchor:'start'});
+        if(!subIsPlaceholder) lastGlyphRuns.push({text:lineText,x:targetLeft,y:sy,size:subSize,wght:350,wdth:100,trackingPx:subDateTrackPct*subSize/100,fill:S.subColor,anchor:'start'});
         const bb=t.getBBox();
         const hit=document.createElementNS(NS,'rect');
         hit.setAttribute('x',bb.x); hit.setAttribute('y',sy-subM.cap);
@@ -1720,7 +1721,7 @@ function render(){
     t.setAttribute('y',boxTop+datePadV+dateCap);
     t.textContent=dateStr;
     dateG.appendChild(t);
-    lastGlyphRuns.push({text:dateStr,x:boxRight-datePadR,y:boxTop+datePadV+dateCap,size:dateSize,wght:450,wdth:100,trackingPx:trackPct*dateSize/100,fill:S.dateColor,anchor:'end'});
+    lastGlyphRuns.push({text:dateStr,x:boxRight-datePadR,y:boxTop+datePadV+dateCap,size:dateSize,wght:450,wdth:100,trackingPx:subDateTrackPct*dateSize/100,fill:S.dateColor,anchor:'end'});
 
     /* A dedicated transparent hit-rect, not the visible shapes themselves —
        same reasoning as the word/subtitle hit-rects: hit-testing directly on
