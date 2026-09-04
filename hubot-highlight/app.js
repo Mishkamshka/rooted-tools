@@ -1062,9 +1062,8 @@ function savedRowsHTML(){
   }).join(''):'<p class="hint" style="margin:0;padding:4px 6px">Nothing saved yet.</p>';
 }
 function renderLoadMenu(){
-  $('loadMenu').innerHTML=savedRowsHTML()+'<hr>'+
-    '<button type="button" id="exportJsonBtn">Export styles</button>'+
-    '<button type="button" id="importJsonBtn">Import styles</button>';
+  $('loadMenu').innerHTML=savedRowsHTML();
+  // hidden for now, not deleted — was: +'<hr>'+'<button type="button" id="importJsonBtn">Import styles</button>'
 }
 initToggleMenu('loadBtn','loadMenu',renderLoadMenu);
 
@@ -1171,7 +1170,6 @@ function handleSavedRowClick(e){
 }
 $('loadMenu').addEventListener('click',function(e){
   const b=e.target.closest('button'); if(!b) return;
-  if(b.id==='exportJsonBtn'){ exportJson(); return; }
   if(b.id==='importJsonBtn'){ $('importJsonFile').click(); return; }
   handleSavedRowClick(e);
 });
@@ -2119,6 +2117,8 @@ async function exportSVG(btn){
   }
 }
 $('exportSvgBtn').addEventListener('click',function(){ exportSVG(this); });
+// hidden for now, not deleted — matches the commented-out button in index.html
+// $('exportJsonBtn').addEventListener('click',exportJson);
 
 /* ---------- boot ---------- */
 function measureHeader(){
