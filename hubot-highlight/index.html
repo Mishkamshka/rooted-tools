@@ -16,10 +16,7 @@
 
 <header>
   <div class="hdr-left">
-    <div class="menu-anchor" id="loadAnchor">
-      <button type="button" id="loadBtn">Load</button>
-      <div class="ctx-menu menu-bk closed" id="loadMenu"></div>
-    </div>
+    <button type="button" id="loadBtn">Library</button>
     <div class="menu-anchor" id="saveAnchor">
       <input type="text" id="layoutName" placeholder="Untitled">
       <button type="button" id="saveBtn">Save</button>
@@ -114,6 +111,28 @@
 </div>
 
 <input type="file" id="importJsonFile" accept="application/json">
+
+<div id="libraryOverlay" class="library-overlay closed">
+  <div class="library-topbar">
+    <button type="button" id="libraryBackBtn">&larr; Back to canvas</button>
+    <input type="text" id="librarySearch" placeholder="Search">
+    <div class="menu-anchor" id="librarySortAnchor">
+      <button type="button" id="librarySortBtn">Sort</button>
+      <div class="ctx-menu menu-bk closed" id="librarySortMenu">
+        <button type="button" data-sort="new" class="active">New to old</button>
+        <button type="button" data-sort="alpha">Alphabetical</button>
+      </div>
+    </div>
+    <button type="button" id="libraryGridViewBtn" class="active">Grid</button>
+    <button type="button" id="libraryListViewBtn">List</button>
+    <span class="library-spacer"></span>
+    <button type="button" id="libraryTrashBtn">Trash</button>
+    <button type="button" id="librarySelectAllBtn">Select all</button>
+    <button type="button" id="libraryRestoreSelectedBtn" hidden>Restore selected</button>
+    <button type="button" id="libraryDeleteSelectedBtn" disabled>Delete selected</button>
+  </div>
+  <div class="library-grid" id="libraryGrid"></div>
+</div>
 
 <script type="module" src="harfbuzz-bundle.js"></script>
 <script src="app.js"></script>

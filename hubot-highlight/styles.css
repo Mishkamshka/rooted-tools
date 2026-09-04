@@ -736,54 +736,162 @@ button.color-swatch:nth-last-of-type(1) {
 .col-settings button:nth-last-of-type(1) {
     border-bottom: 0;
 }
-/* ---------- saved layouts list ---------- */
+/* ---------- library overlay ---------- */
 
-.saved-row {
+.library-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  overflow-y: auto;
+  background: var(--light);
+}
+
+.library-overlay.closed {
+  display: none;
+}
+
+.library-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
-  gap: var(--sml);
-  padding: 5px 4px;
+  gap: var(--reg);
+  padding: var(--reg);
+  background: var(--light);
+  border-bottom: 1px solid var(--mid);
 }
 
-.saved-row:hover {
-  background: #F1EFE8;
-}
-
-.saved-row .name {
+.library-topbar button,
+.library-topbar input {
   width: auto;
-  flex: 1;
-  padding: 0;
-  border: none;
-  background: none;
-  font-family: inherit;
-  text-align: left;
 }
 
-.saved-row .name:hover {
-  background: none;
+#libraryBackBtn {
+  background: var(--white);
+}
+
+#librarySearch {
+  padding: var(--button-pad);
+  height: 2.1rem;
+  border: 1px solid #ff00;
+  background: var(--white);
   color: var(--ink);
-  text-decoration: underline;
+  font-family: var(--hubot);
+  font-size: var(--font-button);
 }
 
-.saved-row .meta {
+.library-spacer {
+  flex: 1;
+}
+
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--reg);
+  padding: var(--reg);
+}
+
+.library-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--white);
+  border: 1px solid var(--mid);
+}
+
+.library-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--reg);
+  padding: var(--reg);
   font-family: var(--mono);
   font-size: var(--font-body);
+}
+
+.library-card-head .name {
+  text-transform: uppercase;
+}
+
+.library-card-head .meta {
   color: var(--muted);
 }
 
-.saved-row .del {
+.library-select {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--mid);
+  background: var(--white);
+}
+
+.library-select:hover {
+  background: var(--light);
+}
+
+.library-card.selected .library-select {
+  background: var(--select);
+  border-color: var(--select);
+}
+
+.library-preview {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  padding: var(--reg);
+  background: #fff;
+}
+
+.library-preview svg {
+  width: 100%;
+  height: 100%;
+}
+
+.library-card-actions {
+  padding: 0;
+}
+
+.library-card-actions button {
+  border-radius: 0;
+  border-top: 1px solid var(--light);
+}
+
+/* ---------- library list view ---------- */
+/* Text-only rows (name/date) — no preview svg, so no per-card render()
+   pass either (see renderLibraryGrid), which is the whole point of a list
+   view: browsing the library without paying for a canvas rebuild per row. */
+
+.library-grid.list-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.library-grid.list-view .library-card {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--reg);
+}
+
+.library-grid.list-view .library-card-head {
+  flex: 1;
+  align-items: center;
+  gap: var(--reg);
+}
+
+.library-grid.list-view .library-card-actions {
   width: auto;
-  padding: 0 3px;
-  border: none;
-  background: none;
-  color: var(--muted);
-  font-size: var(--font-button);
-  cursor: pointer;
+  flex: none;
+  gap: 1px;
 }
 
-.saved-row .del:hover {
-  background: none;
-  color: #C0392B;
+.library-grid.list-view .library-card-actions button {
+  width: auto;
+  border-top: none;
+  border-left: 1px solid var(--light);
 }
 
 /* ---------- modal ---------- */

@@ -951,6 +951,47 @@ function snapshotLayout(id,name){
 let layouts=loadLayouts();
 let currentSaveId=null;
 
+/* Deleting a layout from the Library moves it here instead of dropping it
+   outright — restorable for TRASH_DAYS, after which loadTrash() prunes it
+   for good the next time anything touches the trash (on boot, and after
+   every write). No background timer needed since nothing changes while the
+   tab is closed anyway. */
+const TRASH_DAYS=28;
+function loadTrash(){
+  let raw;
+  try{ raw=JSON.parse(localStorage.getItem('hubotTrash')||'[]'); }catch(e){ return []; }
+  if(!Array.isArray(raw)) return [];
+  const cutoff=Date.now()-TRASH_DAYS*24*60*60*1000;
+  const kept=raw.filter(t=>t.deletedAt>cutoff);
+  if(kept.length!==raw.length) saveTrashList(kept);
+  return kept;
+}
+function saveTrashList(list){
+  try{ localStorage.setItem('hubotTrash',JSON.stringify(list)); return true; }
+  catch(e){ return false; }
+}
+function moveToTrash(ids){
+  const idSet=new Set(ids);
+  const now=Date.now();
+  const moved=layouts.filter(l=>idSet.has(l.id)).map(l=>Object.assign({},l,{deletedAt:now}));
+  trash=moved.concat(trash);
+  layouts=layouts.filter(l=>!idSet.has(l.id));
+  if(idSet.has(currentSaveId)) currentSaveId=null;
+  saveLayoutsList(layouts);
+  saveTrashList(trash);
+}
+function restoreFromTrash(ids){
+  const idSet=new Set(ids);
+  const restored=trash.filter(l=>idSet.has(l.id)).map(function(l){
+    const c=Object.assign({},l); delete c.deletedAt; return c;
+  });
+  layouts=restored.concat(layouts);
+  trash=trash.filter(l=>!idSet.has(l.id));
+  saveLayoutsList(layouts);
+  saveTrashList(trash);
+}
+let trash=loadTrash();
+
 /* ============ header dropdown menus ============ */
 /* Generic open/close for the header's Load/Save/Export/Add subtitle/Add
    date/Text appearance menus — each is a .ctx-menu nested in a .menu-anchor
@@ -1050,22 +1091,193 @@ function initDateColourActions(menuId,onAction){
 }
 initDateColourActions('addDateMenu',null);
 
-function savedRowsHTML(){
+/* ============ library overlay ============ */
+/* Replaces the old Load dropdown outright — a full-screen overlay ("Back to
+   canvas" just hides it again, no routing) listing every saved layout as a
+   card with a live SVG preview. Previews reuse the exact same render()/
+   board the canvas itself uses (temporarily swapping S to each layout's
+   state, capturing a clone, then restoring S) rather than a separate
+   rendering path — cheap and always visually correct, since it's the same
+   code that draws the real canvas. Unlike a real export, these previews
+   skip font-embedding entirely: they're displayed inside this same page,
+   which already has the font loaded via CSS, so there's nothing to make
+   portable. */
+let librarySort='new'; /* 'new' | 'alpha' */
+let libraryView='grid'; /* 'grid' | 'list' */
+let libraryShowTrash=false;
+let librarySelected=new Set();
+
+function buildPreviewSVG(state){
+  const savedS=S;
+  S=Object.assign(defaultState(),state);
+  render();
+  let svg=null;
+  const contentEl=board.querySelector('.ui-content');
+  const bbox=contentEl.getBBox();
+  if(bbox.width>=1&&bbox.height>=1){
+    svg=board.cloneNode(true);
+    svg.querySelectorAll('.ui-only').forEach(n=>n.remove());
+    svg.removeAttribute('style');
+    svg.setAttribute('viewBox',bbox.x+' '+bbox.y+' '+bbox.width+' '+bbox.height);
+  }
+  S=savedS;
+  render();
+  return svg;
+}
+function librarySource(){ return libraryShowTrash?trash:layouts; }
+function libraryCardHTML(l){
   const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return layouts.length?layouts.slice().sort((a,b)=>b.at-a.at).map(function(l){
-    const d=new Date(l.at);
-    const when=d.getDate()+' '+months[d.getMonth()]+' '+d.getFullYear();
-    return '<div class="saved-row">'+
-      '<span class="swatch-dot" style="background:'+twoTone(l.state.padColor,l.state.fontColor)+';"></span>'+
-      '<button class="name" data-load="'+l.id+'">'+esc(l.name)+'<br><span class="meta">'+when+(l.id===currentSaveId?' · open':'')+'</span></button>'+
-      '<button class="del" data-del="'+l.id+'" aria-label="Delete">&times;</button></div>';
-  }).join(''):'<p class="hint" style="margin:0;padding:4px 6px">Nothing saved yet.</p>';
+  const d=new Date(libraryShowTrash?l.deletedAt:l.at);
+  const when=d.getDate()+' '+months[d.getMonth()]+' '+d.getFullYear();
+  let meta;
+  if(libraryShowTrash){
+    const daysLeft=Math.max(0,TRASH_DAYS-Math.floor((Date.now()-l.deletedAt)/86400000));
+    meta='Deleted '+when+' · '+daysLeft+' day'+(daysLeft===1?'':'s')+' left';
+  } else {
+    meta=when+(l.id===currentSaveId?' · open':'');
+  }
+  const actions=libraryShowTrash
+    ?'<button type="button" data-a="restore">Restore</button><button type="button" data-a="purge">Delete forever</button>'
+    :'<button type="button" data-a="open">Open</button><button type="button" data-a="delete">Delete</button>';
+  return '<div class="library-card" data-id="'+l.id+'">'+
+    '<div class="library-card-head">'+
+      '<div><div class="name">'+esc(l.name)+'</div><div class="meta">'+meta+'</div></div>'+
+      '<button type="button" class="library-select" aria-label="Select"></button>'+
+    '</div>'+
+    (libraryView==='grid'?'<div class="library-preview"></div>':'')+
+    '<div class="btn-row library-card-actions">'+actions+'</div>'+
+  '</div>';
 }
-function renderLoadMenu(){
-  $('loadMenu').innerHTML=savedRowsHTML();
-  // hidden for now, not deleted — was: +'<hr>'+'<button type="button" id="importJsonBtn">Import styles</button>'
+function applyLibrarySearch(){
+  const q=$('librarySearch').value.trim().toLowerCase();
+  $('libraryGrid').querySelectorAll('.library-card').forEach(function(card){
+    const name=card.querySelector('.name').textContent.toLowerCase();
+    card.style.display=name.includes(q)?'':'none';
+  });
 }
-initToggleMenu('loadBtn','loadMenu',renderLoadMenu);
+function updateLibraryBulkBar(){
+  const n=librarySelected.size;
+  $('librarySelectAllBtn').textContent=(n>0&&n===librarySource().length)?'Deselect all':'Select all';
+  $('libraryDeleteSelectedBtn').textContent=(libraryShowTrash?'Delete forever':'Delete selected')+(n?' ('+n+')':'');
+  $('libraryDeleteSelectedBtn').disabled=n===0;
+  $('libraryRestoreSelectedBtn').hidden=!libraryShowTrash;
+  $('libraryRestoreSelectedBtn').disabled=n===0;
+}
+function renderLibraryGrid(){
+  const grid=$('libraryGrid');
+  grid.innerHTML='';
+  grid.classList.toggle('list-view',libraryView==='list');
+  librarySelected.clear();
+  updateLibraryBulkBar();
+  const source=librarySource();
+  if(!source.length){ grid.innerHTML='<p class="hint">'+(libraryShowTrash?'Trash is empty.':'Nothing saved yet.')+'</p>'; return; }
+  const sortField=libraryShowTrash?'deletedAt':'at';
+  const sorted=source.slice().sort(librarySort==='alpha'
+    ?(a,b)=>a.name.localeCompare(b.name)
+    :(a,b)=>b[sortField]-a[sortField]);
+  sorted.forEach(function(l){
+    const wrap=document.createElement('div');
+    wrap.innerHTML=libraryCardHTML(l);
+    const card=wrap.firstElementChild;
+    if(libraryView==='grid'){
+      const svg=buildPreviewSVG(l.state);
+      if(svg) card.querySelector('.library-preview').appendChild(svg);
+    }
+    grid.appendChild(card);
+  });
+  applyLibrarySearch();
+}
+function setLibraryView(view){
+  libraryView=view;
+  $('libraryGridViewBtn').classList.toggle('active',view==='grid');
+  $('libraryListViewBtn').classList.toggle('active',view==='list');
+  renderLibraryGrid();
+}
+function openLibrary(){
+  $('librarySearch').value='';
+  libraryShowTrash=false;
+  $('libraryTrashBtn').classList.remove('active');
+  renderLibraryGrid();
+  $('libraryOverlay').classList.remove('closed');
+}
+function closeLibrary(){
+  $('libraryOverlay').classList.add('closed');
+}
+$('loadBtn').addEventListener('click',openLibrary);
+$('libraryBackBtn').addEventListener('click',closeLibrary);
+$('librarySearch').addEventListener('input',applyLibrarySearch);
+$('libraryGridViewBtn').addEventListener('click',function(){ setLibraryView('grid'); });
+$('libraryListViewBtn').addEventListener('click',function(){ setLibraryView('list'); });
+$('libraryTrashBtn').addEventListener('click',function(){
+  libraryShowTrash=!libraryShowTrash;
+  $('libraryTrashBtn').classList.toggle('active',libraryShowTrash);
+  $('librarySearch').value='';
+  renderLibraryGrid();
+});
+initToggleMenu('librarySortBtn','librarySortMenu');
+$('librarySortMenu').addEventListener('click',function(e){
+  const b=e.target.closest('button[data-sort]'); if(!b) return;
+  librarySort=b.dataset.sort;
+  this.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));
+  closeAllMenus();
+  renderLibraryGrid();
+});
+$('librarySelectAllBtn').addEventListener('click',function(){
+  const allSelected=librarySelected.size>0&&librarySelected.size===librarySource().length;
+  librarySelected.clear();
+  $('libraryGrid').querySelectorAll('.library-card').forEach(function(card){
+    if(!allSelected){ librarySelected.add(card.dataset.id); card.classList.add('selected'); }
+    else card.classList.remove('selected');
+  });
+  updateLibraryBulkBar();
+});
+$('libraryRestoreSelectedBtn').addEventListener('click',function(){
+  const ids=Array.from(librarySelected); if(!ids.length) return;
+  restoreFromTrash(ids);
+  renderLibraryGrid();
+});
+$('libraryDeleteSelectedBtn').addEventListener('click',function(){
+  const ids=Array.from(librarySelected); if(!ids.length) return;
+  if(libraryShowTrash){
+    openModal('Delete forever','Permanently delete '+ids.length+' layout'+(ids.length>1?'s':'')+'? This cannot be undone.',[
+      {label:'Delete forever',fn:function(){
+        trash=trash.filter(l=>!librarySelected.has(l.id));
+        saveTrashList(trash);
+        renderLibraryGrid();
+      }},{label:'Cancel'}]);
+  } else {
+    openModal('Delete '+ids.length+' layout'+(ids.length>1?'s':''),
+      'They’ll move to Trash, where you can restore them for '+TRASH_DAYS+' days.',[
+      {label:'Move to Trash',fn:function(){ moveToTrash(ids); renderLibraryGrid(); }},{label:'Cancel'}]);
+  }
+});
+$('libraryGrid').addEventListener('click',function(e){
+  const card=e.target.closest('.library-card'); if(!card) return;
+  const id=card.dataset.id;
+  if(e.target.closest('.library-select')){
+    if(librarySelected.has(id)) librarySelected.delete(id); else librarySelected.add(id);
+    card.classList.toggle('selected',librarySelected.has(id));
+    updateLibraryBulkBar();
+    return;
+  }
+  const b=e.target.closest('button[data-a]'); if(!b) return;
+  if(b.dataset.a==='open'){ closeLibrary(); loadLayout(id); }
+  if(b.dataset.a==='delete'){
+    const l=layouts.find(l=>l.id===id);
+    openModal('Delete','Move "'+(l?l.name:'this layout')+'" to Trash? You can restore it for '+TRASH_DAYS+' days.',[
+      {label:'Move to Trash',fn:function(){ moveToTrash([id]); renderLibraryGrid(); }},{label:'Cancel'}]);
+  }
+  if(b.dataset.a==='restore'){ restoreFromTrash([id]); renderLibraryGrid(); }
+  if(b.dataset.a==='purge'){
+    const l=trash.find(l=>l.id===id);
+    openModal('Delete forever','Permanently delete "'+(l?l.name:'this layout')+'"? This cannot be undone.',[
+      {label:'Delete forever',fn:function(){
+        trash=trash.filter(l=>l.id!==id);
+        saveTrashList(trash);
+        renderLibraryGrid();
+      }},{label:'Cancel'}]);
+  }
+});
 
 function loadObj(obj){
   S=Object.assign(defaultState(),obj);
@@ -1154,25 +1366,6 @@ function exportJson(){
   dirty=false;
   closeAllMenus();
 }
-function handleSavedRowClick(e){
-  const b=e.target.closest('button'); if(!b) return;
-  if(b.dataset.load){ closeAllMenus(); loadLayout(b.dataset.load); }
-  if(b.dataset.del){
-    const l=layouts.find(l=>l.id===b.dataset.del);
-    closeAllMenus();
-    openModal('Delete','Delete "'+(l?l.name:'this layout')+'"? This cannot be undone.',[
-      {label:'Delete it',fn:function(){
-        layouts=layouts.filter(l=>l.id!==b.dataset.del);
-        if(currentSaveId===b.dataset.del) currentSaveId=null;
-        saveLayoutsList(layouts);
-      }},{label:'Cancel'}]);
-  }
-}
-$('loadMenu').addEventListener('click',function(e){
-  const b=e.target.closest('button'); if(!b) return;
-  if(b.id==='importJsonBtn'){ $('importJsonFile').click(); return; }
-  handleSavedRowClick(e);
-});
 $('importJsonFile').addEventListener('change',function(){
   const f=this.files[0]; if(!f) return;
   const reader=new FileReader();

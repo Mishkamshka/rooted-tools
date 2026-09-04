@@ -23,7 +23,6 @@ async function bodyMenuOpen(page) {
 
 test.describe('header dropdowns', () => {
   const dropdowns = [
-    ['loadBtn', 'loadMenu'],
     ['exportMenuBtn', 'exportMenu'],
     ['addSubtitleBtn', 'addSubtitleMenu'],
     ['addDateBtn', 'addDateMenu'],
@@ -40,10 +39,10 @@ test.describe('header dropdowns', () => {
   }
 
   test('opening one dropdown closes another that was open', async ({ page }) => {
-    await page.click('#loadBtn');
-    await expect(page.locator('#loadMenu')).not.toHaveClass(/closed/);
+    await page.click('#addSubtitleBtn');
+    await expect(page.locator('#addSubtitleMenu')).not.toHaveClass(/closed/);
     await page.click('#exportMenuBtn');
-    await expect(page.locator('#loadMenu')).toHaveClass(/closed/);
+    await expect(page.locator('#addSubtitleMenu')).toHaveClass(/closed/);
     await expect(page.locator('#exportMenu')).not.toHaveClass(/closed/);
   });
 });
@@ -65,7 +64,7 @@ test.describe('board right-click menu', () => {
   test('closes when a header button is clicked (stopPropagation regression)', async ({ page }) => {
     await openBoardMenu(page);
     await expect.poll(() => bodyMenuOpen(page)).toBe(true);
-    await page.click('#loadBtn');
+    await page.click('#exportMenuBtn');
     await expect.poll(() => bodyMenuOpen(page)).toBe(false);
   });
 
@@ -168,12 +167,146 @@ test.describe('highlight all / un-highlight all', () => {
 });
 
 test.describe('save / load', () => {
-  test('saving adds an entry that Load can then open', async ({ page }) => {
+  test('saving adds an entry that the Library can then open', async ({ page }) => {
     await page.fill('#layoutName', 'Smoke Test Layout');
     await page.click('#saveBtn');
     await expect(page.locator('#status')).toContainText('Saved');
     await page.click('#loadBtn');
-    await expect(page.locator('#loadMenu')).toContainText('Smoke Test Layout');
+    await expect(page.locator('#libraryGrid')).toContainText('Smoke Test Layout');
+  });
+});
+
+test.describe('library overlay', () => {
+  async function saveAs(page, name) {
+    await page.fill('#layoutName', name);
+    await page.click('#saveBtn');
+    /* A second save under a different name, while a previous save this
+       session is still "current", pops the Save conflict menu (Rename and
+       update / Save as a new layout) instead of saving immediately. */
+    const menu = page.locator('#saveMenu');
+    if (!(await menu.evaluate(el => el.classList.contains('closed')))) {
+      await menu.locator('button', { hasText: 'Save as a new layout' }).click();
+    }
+    await expect(page.locator('#status')).toContainText('Saved');
+  }
+
+  test('Library button opens the overlay, Back to canvas closes it', async ({ page }) => {
+    const overlay = page.locator('#libraryOverlay');
+    await expect(overlay).toHaveClass(/closed/);
+    await page.click('#loadBtn');
+    await expect(overlay).not.toHaveClass(/closed/);
+    await page.click('#libraryBackBtn');
+    await expect(overlay).toHaveClass(/closed/);
+  });
+
+  test('each saved layout gets a card with a real SVG preview', async ({ page }) => {
+    await saveAs(page, 'Preview Check');
+    await page.click('#loadBtn');
+    const card = page.locator('.library-card', { hasText: 'Preview Check' });
+    await expect(card).toBeVisible();
+    await expect(card.locator('.library-preview svg')).toHaveCount(1);
+  });
+
+  test('search filters cards as you type', async ({ page }) => {
+    await saveAs(page, 'Alpha Layout');
+    await saveAs(page, 'Beta Layout');
+    await page.click('#loadBtn');
+    await expect(page.locator('.library-card')).toHaveCount(2);
+    await page.fill('#librarySearch', 'Alpha');
+    await expect(page.locator('.library-card:visible')).toHaveCount(1);
+    await expect(page.locator('.library-card:visible')).toContainText('Alpha Layout');
+  });
+
+  test('Open loads the layout and closes the overlay', async ({ page }) => {
+    await page.fill('#text', 'Original Title Content');
+    await saveAs(page, 'Open Me');
+    /* #text's 'input' handler coalesces rapid edits into one history push
+       (pushHistoryCoalesced, 400ms) — without this wait the edit below can
+       land inside that window and never actually flip `dirty`, since it'd
+       look like a continuation of the edit saveAs's own field-filling just
+       made rather than a new one. */
+    await page.waitForTimeout(450);
+    await page.fill('#text', 'Something else entirely');
+    await page.click('#loadBtn');
+    const card = page.locator('.library-card', { hasText: 'Open Me' });
+    await card.locator('button[data-a="open"]').click();
+    await expect(page.locator('#libraryOverlay')).toHaveClass(/closed/);
+    await page.click('.modal-box button:has-text("Discard and continue")'); // unsaved-changes guard
+    await expect(page.locator('#text')).toHaveValue('Original Title Content');
+  });
+
+  test('Delete moves the card to Trash', async ({ page }) => {
+    await saveAs(page, 'Delete Me');
+    await page.click('#loadBtn');
+    const card = page.locator('.library-card', { hasText: 'Delete Me' });
+    await card.locator('button[data-a="delete"]').click();
+    await page.click('.modal-box button:has-text("Move to Trash")');
+    await expect(page.locator('.library-card', { hasText: 'Delete Me' })).toHaveCount(0);
+    await page.click('#libraryTrashBtn');
+    await expect(page.locator('.library-card', { hasText: 'Delete Me' })).toBeVisible();
+    await expect(page.locator('.library-card', { hasText: 'Delete Me' })).toContainText('days left');
+  });
+
+  test('select all + bulk delete moves every card to Trash', async ({ page }) => {
+    await saveAs(page, 'Bulk One');
+    await saveAs(page, 'Bulk Two');
+    await page.click('#loadBtn');
+    await expect(page.locator('.library-card')).toHaveCount(2);
+    await page.click('#librarySelectAllBtn');
+    await expect(page.locator('#libraryDeleteSelectedBtn')).toBeEnabled();
+    await page.click('#libraryDeleteSelectedBtn');
+    await page.click('.modal-box button:has-text("Move to Trash")');
+    await expect(page.locator('.library-card')).toHaveCount(0);
+    await page.click('#libraryTrashBtn');
+    await expect(page.locator('.library-card')).toHaveCount(2);
+  });
+
+  test('Restore brings a trashed layout back to the main list', async ({ page }) => {
+    await saveAs(page, 'Restore Me');
+    await page.click('#loadBtn');
+    await page.locator('.library-card', { hasText: 'Restore Me' }).locator('button[data-a="delete"]').click();
+    await page.click('.modal-box button:has-text("Move to Trash")');
+    await page.click('#libraryTrashBtn');
+    await page.locator('.library-card', { hasText: 'Restore Me' }).locator('button[data-a="restore"]').click();
+    await expect(page.locator('.library-card', { hasText: 'Restore Me' })).toHaveCount(0);
+    await page.click('#libraryTrashBtn'); // back to the main list
+    await expect(page.locator('.library-card', { hasText: 'Restore Me' })).toBeVisible();
+  });
+
+  test('Delete forever removes a trashed layout permanently', async ({ page }) => {
+    await saveAs(page, 'Purge Me');
+    await page.click('#loadBtn');
+    await page.locator('.library-card', { hasText: 'Purge Me' }).locator('button[data-a="delete"]').click();
+    await page.click('.modal-box button:has-text("Move to Trash")');
+    await page.click('#libraryTrashBtn');
+    await page.locator('.library-card', { hasText: 'Purge Me' }).locator('button[data-a="purge"]').click();
+    await page.click('.modal-box button:has-text("Delete forever")');
+    await expect(page.locator('.library-card', { hasText: 'Purge Me' })).toHaveCount(0);
+  });
+
+  test('list view shows text-only rows with no preview svg', async ({ page }) => {
+    await saveAs(page, 'List Row');
+    await page.click('#loadBtn');
+    await expect(page.locator('.library-card svg')).toHaveCount(1);
+    await page.click('#libraryListViewBtn');
+    await expect(page.locator('#libraryGrid')).toHaveClass(/list-view/);
+    await expect(page.locator('.library-card', { hasText: 'List Row' })).toBeVisible();
+    await expect(page.locator('.library-card svg')).toHaveCount(0);
+    await page.click('#libraryGridViewBtn');
+    await expect(page.locator('.library-card svg')).toHaveCount(1);
+  });
+
+  test('sort toggles between new-to-old and alphabetical', async ({ page }) => {
+    await saveAs(page, 'Zeta');
+    await saveAs(page, 'Alpha');
+    await page.click('#loadBtn');
+    const namesNewOld = await page.locator('.library-card .name').allTextContents();
+    expect(namesNewOld[0]).toBe('Alpha'); // saved most recently, so newest-first
+    await page.click('#librarySortBtn');
+    await page.click('#librarySortMenu button[data-sort="alpha"]');
+    const namesAlpha = await page.locator('.library-card .name').allTextContents();
+    expect(namesAlpha[0]).toBe('Alpha');
+    expect(namesAlpha[1]).toBe('Zeta');
   });
 });
 
