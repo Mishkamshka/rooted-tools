@@ -498,17 +498,17 @@ document.addEventListener('keydown',function(e){
 function openWordPopover(gidx,clientX,clientY){
   closeWordPopover(true);
   const el=document.createElement('div');
-  el.id='wordPopover'; el.className='popover';
+  el.id='wordPopover'; el.className='popover mica';
   el.style.left=Math.min(clientX,window.innerWidth-190)+'px';
   el.style.top=Math.min(clientY,window.innerHeight-220)+'px';
   el.innerHTML=
-    '<div class="popover-presets">'+
+    '<div class="menu-list">'+
       PRESETS.map((p,i)=>
         '<button type="button" data-p="'+i+'">'+
           '<span class="swatch-dot" style="background:'+twoTone(p.pad,p.font)+'"></span>'+
           '<span class="name">'+p.name+'</span></button>').join('')+
     '</div>'+
-    '<div class="popover-actions">'+
+    '<div class="col-settings menu-bk">'+
       '<button type="button" data-p="swap">&#8646; Swap this word\'s colours</button>'+
       '<button type="button" data-p="clear">Clear override</button>'+
     '</div>';
