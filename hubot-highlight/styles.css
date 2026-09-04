@@ -126,6 +126,7 @@ input[type=text] {
   background: var(--white);
   font-family: var(--hubot);
   font-size: var(--font-button);
+  color: inherit;
 }
 
 input[type=number] {
@@ -425,6 +426,8 @@ aside>* {
   font-size: var(--font-body);
   font-weight: 400;
   font-style: normal;
+  padding: var(--reg) 0;
+
 }
 
 .ctx-menu button:hover:not(:disabled) {
@@ -574,7 +577,7 @@ aside>* {
   border: 1px solid var(--light);
   border-radius: .5rem;
   padding: var(--reg) 1.6rem var(--reg) var(--reg);
-  background-color: var(--white);
+  background-color: #fff;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2337352B' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right .65rem center;
@@ -811,11 +814,17 @@ padding: 0;
 }
 
 button#subtitleToggleBtn.active, button#dateToggleBtn.active {
-    border-radius: 1rem;
+    padding-left: var(--reg);
+    padding-right: var(--reg);
 }
 
-.settings-text-section button, .adddate-btns button {
-    padding: var(--reg) 0;
+button#subtitleToggleBtn:hover, button#dateToggleBtn:hover {
+    padding-left: var(--reg);
+    padding-right: var(--reg);
+}
+
+button#subtitleToggleBtn.active, button#dateToggleBtn.active {
+    border-radius: 1rem;
 }
 
 .settings-text-section.menu-bk {

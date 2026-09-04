@@ -568,7 +568,7 @@ function openSubtitlePopover(clientX,clientY){
   el.style.top=Math.min(clientY,window.innerHeight-220)+'px';
   el.innerHTML=PALETTE.map((c,i)=>
     '<button type="button" data-p="'+i+'" >'+
-      '<span style="width:14px;height:14px;border-radius:50%;background:'+c.hex+';border:1px solid var(--rule);flex:none"></span>'+
+      '<span class="swatch-dot" style="background:'+c.hex+';"></span>'+
       '<span class="name">'+c.name+'</span></button>').join('');
   document.body.appendChild(el);
   popIn(el);
@@ -612,7 +612,7 @@ function openDatePopover(clientX,clientY){
   el.style.top=Math.min(clientY,window.innerHeight-220)+'px';
   el.innerHTML=PRESETS.map((p,i)=>
     '<button type="button" data-p="'+i+'" >'+
-      '<span style="width:14px;height:14px;background:'+twoTone(p.pad,p.font)+';border:1px solid var(--rule);flex:none"></span>'+
+      '<span class="swatch-dot" style="width:14px;height:14px;background:'+twoTone(p.pad,p.font)+';border:1px solid var(--rule);flex:none"></span>'+
       '<span class="name">'+p.name+'</span></button>').join('')+
     '<button type="button" data-p="swap">&#8646; Swap colours</button>'+
     '<button type="button" data-p="clear">Match title colours</button>';
@@ -838,15 +838,13 @@ document.addEventListener('keydown',function(e){
 function openBoardMenu(clientX,clientY){
   closeBoardMenu();
   const el=document.createElement('div');
-  el.className='ctx-menu';
+  el.className='ctx-menu menu-bk';
   el.style.left=Math.min(clientX,window.innerWidth-200)+'px';
   el.style.top=Math.min(clientY,window.innerHeight-220)+'px';
   el.innerHTML=
     '<button type="button" data-a="clear">Clear overrides</button>'+
     '<button type="button" data-a="presets">Colour presets <span class="ctx-caret">&#9656;</span></button>'+
-    '<hr>'+
     '<button type="button" data-a="toggleAll">'+toggleHighlightAllLabel()+'</button>'+
-    '<hr>'+
     '<button type="button" data-a="swap">&#8646; Swap colours</button>';
   document.body.appendChild(el);
   popIn(el);
@@ -1053,7 +1051,7 @@ function savedRowsHTML(){
     const d=new Date(l.at);
     const when=d.getDate()+' '+months[d.getMonth()]+' '+d.getFullYear();
     return '<div class="saved-row">'+
-      '<span style="width:14px;height:14px;background:'+twoTone(l.state.padColor,l.state.fontColor)+';border:1px solid var(--rule);flex:none"></span>'+
+      '<span class="swatch-dot" style="background:'+twoTone(l.state.padColor,l.state.fontColor)+';"></span>'+
       '<button class="name" data-load="'+l.id+'">'+esc(l.name)+'<br><span class="meta">'+when+(l.id===currentSaveId?' · open':'')+'</span></button>'+
       '<button class="del" data-del="'+l.id+'" aria-label="Delete">&times;</button></div>';
   }).join(''):'<p class="hint" style="margin:0;padding:4px 6px">Nothing saved yet.</p>';
@@ -1116,7 +1114,7 @@ $('saveBtn').addEventListener('click',function(e){
   if(!actions){ commitSave(snapshotLayout(uid(),typed)); return; }
   const menu=$('saveMenu');
   menu.innerHTML=actions.map((a,i)=>'<button type="button" data-i="'+i+'">'+esc(a.label)+'</button>').join('')+
-    '<hr><button type="button" data-i="cancel">Cancel</button>';
+    '<button type="button" data-i="cancel">Cancel</button>';
   menu.__actions=actions;
   showMenu(menu);
 });
