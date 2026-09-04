@@ -676,6 +676,49 @@ aside>* {
   font-size: var(--font-body);
 }
 
+/* ---------- date picker (month + year, one popover) ---------- */
+
+.date-picker-year {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--reg);
+  padding-bottom: var(--reg);
+  margin-bottom: var(--reg);
+  border-bottom: 1px solid var(--light);
+}
+
+.date-picker-year button {
+  width: auto;
+  padding: var(--sml) var(--reg);
+}
+
+.date-picker-year-label {
+  font-family: var(--mono);
+  font-size: var(--font-button);
+  min-width: 4em;
+  text-align: center;
+}
+
+.date-picker-months {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sml);
+}
+
+.date-picker-months button {
+  width: auto;
+  justify-content: center;
+  border: 1px solid var(--light);
+  border-bottom: 1px solid var(--light);
+  border-radius: .5rem;
+}
+
+.date-picker-months button.active {
+  background: var(--ink);
+  color: #fff;
+}
+
 .popover button:hover {
     border-radius: 0.5rem;
     padding: var(--reg) !important;

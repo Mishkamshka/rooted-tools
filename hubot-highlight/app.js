@@ -642,6 +642,55 @@ function openDatePopover(clientX,clientY){
   activeWordPopover={el:el,revert:revert};
 }
 
+/* Left-click on the date opens a single stylised popover for both month and
+   year — replaces having to reach for the Date panel's two native <select>s.
+   Reuses activeWordPopover (the same "only one popover open at a time"
+   system the colour popovers use) rather than a parallel one, since only
+   one of any of these should ever be open together. Nothing here needs a
+   hover-preview/revert step the way the colour popovers do — every click
+   commits immediately — so revert is just a no-op. */
+function openDatePicker(clientX,clientY){
+  closeWordPopover(true);
+  const el=document.createElement('div');
+  el.id='wordPopover'; el.className='popover';
+  el.style.left=Math.min(clientX,window.innerWidth-200)+'px';
+  el.style.top=Math.min(clientY,window.innerHeight-260)+'px';
+  let draftYear=S.dateYear;
+  el.innerHTML=
+    '<div class="date-picker-year">'+
+      '<button type="button" data-y="prev">&#8249;</button>'+
+      '<span class="date-picker-year-label">'+draftYear+'</span>'+
+      '<button type="button" data-y="next">&#8250;</button>'+
+    '</div>'+
+    '<div class="date-picker-months">'+
+      MONTHS.map((m,i)=>'<button type="button" data-m="'+(i+1)+'" class="'+(S.dateMonth===i+1?'active':'')+'">'+m.slice(0,3)+'</button>').join('')+
+    '</div>';
+  document.body.appendChild(el);
+  popIn(el);
+
+  const yearLabel=el.querySelector('.date-picker-year-label');
+  el.addEventListener('click',function(e){
+    const yBtn=e.target.closest('[data-y]');
+    if(yBtn){
+      draftYear=clamp(draftYear+(yBtn.dataset.y==='next'?1:-1),YEAR_MIN,YEAR_MAX);
+      yearLabel.textContent=draftYear;
+      pushHistory();
+      S.dateYear=draftYear;
+      syncInputs(); render();
+      return;
+    }
+    const mBtn=e.target.closest('[data-m]');
+    if(mBtn){
+      pushHistory();
+      S.dateMonth=+mBtn.dataset.m;
+      syncInputs(); render();
+      closeWordPopover(false);
+    }
+  });
+
+  activeWordPopover={el:el,revert:function(){}};
+}
+
 /* Right-clicking empty canvas (not a word/subtitle/date hit-rect, which each
    have their own popover above — tagged data-ctx="own" so this handler skips
    them) opens a board-wide action menu. "Colour presets" opens a second
@@ -1735,6 +1784,9 @@ function render(){
     dateHit.setAttribute('class','hit-date');
     dateHit.setAttribute('data-ctx','own');
     dateHit.style.cursor='pointer';
+    dateHit.addEventListener('click',function(ev){
+      openDatePicker(ev.clientX,ev.clientY);
+    });
     dateHit.addEventListener('contextmenu',function(ev){
       ev.preventDefault();
       openDatePopover(ev.clientX,ev.clientY);
